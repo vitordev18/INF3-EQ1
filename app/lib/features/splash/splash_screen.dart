@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -13,25 +15,11 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _initRedirect();
-  }
-
-  Future<void> _initRedirect() async {
-    await Future.delayed(const Duration(seconds: 3));
-    final bool isAuthenticated = await _checkAuth();
-
-    if (mounted) {
-      if (isAuthenticated) {
-        context.goNamed('home');
-      } else {
-        context.goNamed('login');
+    Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        context.go('/upload-dof');
       }
-    }
-  }
-
-  Future<bool> _checkAuth() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    return false;
+    });
   }
 
   @override
@@ -45,7 +33,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Icon(Icons.document_scanner_rounded, size: 100, color: AppColors.white),
             const SizedBox(height: 40),
             Text(
-              'Teste',
+              'FISCALIZA',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 color: AppColors.white,
                 fontWeight: FontWeight.w800,
@@ -55,7 +43,7 @@ class _SplashScreenState extends State<SplashScreen> {
             CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.white)),
             const SizedBox(height: 20),
             Text(
-              'Carregando...',
+              'Carregando módulos...',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.white.withOpacity(0.9),
                 fontWeight: FontWeight.w500,
