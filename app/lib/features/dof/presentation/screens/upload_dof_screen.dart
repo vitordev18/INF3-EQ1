@@ -26,12 +26,12 @@ class _UploadDofScreenState extends State<UploadDofScreen> {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['xlsx', 'xls'],
-        dialogTitle: 'Selecione a planilha DOF (Excel)',
+        allowedExtensions: ['xlsx', 'xls', 'csv'],
+        dialogTitle: 'Selecione a planilha DOF',
         withData: true,
       );
       if (result != null) {
-        setState(() => _statusMessage = 'Lendo arquivo Excel...');
+        setState(() => _statusMessage = 'Lendo arquivo...');
         final fileBytes = result.files.single.bytes;
         if (fileBytes == null) {
           throw Exception('Não foi possível ler os bytes do arquivo.');
@@ -69,7 +69,14 @@ class _UploadDofScreenState extends State<UploadDofScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Upload do DOF'), backgroundColor: AppColors.green),
+      appBar: AppBar(
+        title: Text(
+          'Upload do DOF',
+          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.w800),
+        ),
+        backgroundColor: AppColors.green,
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/')),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32.0),
@@ -102,10 +109,7 @@ class _UploadDofScreenState extends State<UploadDofScreen> {
                           width: 24,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : const Text(
-                          'Selecionar Planilha .xlsx',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                      : const Text('Selecionar Planilha', style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],

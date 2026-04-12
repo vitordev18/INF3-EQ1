@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:app/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -13,43 +11,57 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
-  void initState() {
-    super.initState();
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        context.go('/upload-dof');
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.green,
+      backgroundColor: AppColors.lightGrey,
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.document_scanner_rounded, size: 100, color: AppColors.white),
-            const SizedBox(height: 40),
-            Text(
-              'FISCALIZA',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppColors.white,
-                fontWeight: FontWeight.w800,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/icons/logomarca.png',
+                width: 100,
+                height: 100,
+                fit: BoxFit.contain,
               ),
-            ),
-            const SizedBox(height: 20),
-            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.white)),
-            const SizedBox(height: 20),
-            Text(
-              'Carregando módulos...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.white.withOpacity(0.9),
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 40),
+              Text(
+                'FISCALIZA',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  color: AppColors.black,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 40),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: TextField(
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search),
+                    hintText: 'Buscar madeireira',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (query) {
+                    // TODO: Implementar lógica de busca de madeireira
+                    if (query.trim().isEmpty) return;
+                  },
+                ),
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.green),
+                onPressed: () => context.go('/upload-dof'),
+                child: const Text('Upload DOF', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
         ),
       ),
     );
