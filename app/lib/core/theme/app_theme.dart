@@ -8,6 +8,7 @@ class AppTheme {
 
   static ThemeData get light => ThemeData(
     useMaterial3: true,
+    fontFamily: 'Poppins',
     colorScheme: ColorScheme(
       brightness: Brightness.light,
       primary: AppColors.green,
@@ -101,7 +102,7 @@ class AppTheme {
     ),
 
     // Textos
-    textTheme: TextTheme(
+    textTheme: const TextTheme(
       headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.black),
       titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.black),
       bodyMedium: TextStyle(fontSize: 14, color: AppColors.black),
