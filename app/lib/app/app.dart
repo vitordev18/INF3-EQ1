@@ -11,7 +11,7 @@ class App extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Teste',
+      title: 'Fizcaliza',
       debugShowCheckedModeBanner: false,
       routerConfig: router,
     );
