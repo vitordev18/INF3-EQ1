@@ -1,0 +1,4 @@
+dependencies:
+  file_picker: ^8.0.0
+  csv: ^6.0.0
+  excel: ^3.0.0
