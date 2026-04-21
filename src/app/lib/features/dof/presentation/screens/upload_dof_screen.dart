@@ -24,7 +24,7 @@ class _UploadDofScreenState extends State<UploadDofScreen> {
     });
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls', 'csv'],
         dialogTitle: 'Selecione a planilha DOF',
