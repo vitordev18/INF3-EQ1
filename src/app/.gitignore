@@ -33,6 +33,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Flutter generated files
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+
 # Symbolication related
 app.*.symbols
 
