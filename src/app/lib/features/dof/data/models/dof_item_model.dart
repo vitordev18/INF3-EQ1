@@ -1,27 +1,53 @@
+import 'package:isar/isar.dart';
 import 'package:app/features/dof/domain/entities/dof_item.dart';
 
-class DofItemModel extends DofItem {
+part 'dof_item_model.g.dart';
+
+@Collection()
+class DofItemModel implements DofItem {
+  // ID numérico obrigatório para o funcionamento interno do Isar
+  Id isarId = Isar.autoIncrement;
+
+  // Declaramos os campos com @override para respeitar o DofItem,
+  // mas agora eles estão visíveis para o gerador do Isar!
+  @override
+  String id;
+
+  @override
+  String numero;
+
+  @override
+  String produto;
+
+  @override
+  String especieCientifico;
+
+  @override
+  String nomePopular;
+
+  @override
+  double saldoLivre;
+
+  @override
+  double saldoTotal;
+
+  @override
+  String unidade;
+
+  @override
+  DateTime? criadoEm;
+
   DofItemModel({
-    required String id,
-    required String numero,
-    required String produto,
-    required String especieCientifico,
-    required String nomePopular,
-    required double saldoLivre,
-    required double saldoTotal,
-    required String unidade,
+    required this.id,
+    required this.numero,
+    required this.produto,
+    required this.especieCientifico,
+    required this.nomePopular,
+    required this.saldoLivre,
+    required this.saldoTotal,
+    required this.unidade,
     DateTime? criadoEm,
-  }) : super(
-    id: id,
-    numero: numero,
-    produto: produto,
-    especieCientifico: especieCientifico,
-    nomePopular: nomePopular,
-    saldoLivre: saldoLivre,
-    saldoTotal: saldoTotal,
-    unidade: unidade,
-    criadoEm: criadoEm ?? DateTime.now(),
-  );
+  }) : criadoEm = criadoEm ?? DateTime.now();
 
   factory DofItemModel.fromJson(Map<String, dynamic> json) {
     return DofItemModel(
@@ -34,8 +60,8 @@ class DofItemModel extends DofItem {
       saldoTotal: (json['saldoTotal'] as num).toDouble(),
       unidade: json['unidade'] as String? ?? 'm³',
       criadoEm: json['criadoEm'] != null
-        ? DateTime.parse(json['criadoEm'] as String)
-        : null,
+          ? DateTime.parse(json['criadoEm'] as String)
+          : null,
     );
   }
 

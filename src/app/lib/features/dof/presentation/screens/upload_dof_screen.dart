@@ -1,121 +1,137 @@
 import 'dart:io';
-import 'dart:typed_data';
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/features/dof/data/services/dof_conversion_service.dart';
-import 'package:file_picker/file_picker.dart';
-// MANTIDO COMENTADO: Não estamos usando o FileSaver agora para testar no celular
-// import 'package:file_saver/file_saver.dart'; 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart'; // Novo pacote para compartilhamento
+import 'package:path/path.dart' as p; // Necessário para pegar a extensão (.csv ou .xlsx)
 
-class UploadDofScreen extends StatefulWidget {
+import 'package:app/core/theme/app_colors.dart';
+// ATENÇÃO: Ajuste estes imports para os caminhos corretos do seu projeto
+import 'package:app/features/dof/data/models/dof_item_model.dart';
+import 'package:app/features/dof/data/services/excel_parser_service.dart';
+import 'package:app/features/dof/data/services/csv_parser_service.dart';
+import 'package:app/features/dof/presentation/providers/dof_providers.dart'; 
+
+// Atualizamos o Notifier para usar o DofItemModel oficial
+class ParsedDofItemsNotifier extends Notifier<List<DofItemModel>> {
+  @override
+  List<DofItemModel> build() => [];
+
+  void updateItems(List<DofItemModel> items) {
+    state = items;
+  }
+}
+
+final parsedDofItemsProvider = NotifierProvider<ParsedDofItemsNotifier, List<DofItemModel>>(
+  ParsedDofItemsNotifier.new,
+);
+
+class UploadDofScreen extends ConsumerStatefulWidget {
   const UploadDofScreen({super.key});
 
   @override
-  State<UploadDofScreen> createState() => _UploadDofScreenState();
+  ConsumerState<UploadDofScreen> createState() => _UploadDofScreenState();
 }
 
-class _UploadDofScreenState extends State<UploadDofScreen> {
+class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
   bool _isImporting = false;
+  bool _isSaving = false;
   String? _statusMessage;
   bool _isError = false;
-  String? _xmlContent;
-  DofConversionResult? _conversionResult;
 
-  Future<void> _pickAndConvertFile() async {
+  // Lista tipada com o modelo do Isar
+  List<DofItemModel> _parsedItems = [];
+
+  Future<void> _pickExcelFile() async {
     setState(() {
       _isImporting = true;
       _statusMessage = 'Aguardando seleção do arquivo...';
       _isError = false;
-      _xmlContent = null;
-      _conversionResult = null;
+      _parsedItems.clear();
     });
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls', 'csv'],
         dialogTitle: 'Selecione a planilha DOF',
       );
 
       if (result != null && result.files.single.path != null) {
-        setState(() => _statusMessage = 'Lendo e convertendo arquivo...');
+        setState(() => _statusMessage = 'Fazendo parsing do arquivo...');
 
-        final file = File(result.files.single.path!);
-        final fileName = result.files.single.name;
+        File file = File(result.files.single.path!);
+        final extension = p.extension(file.path).toLowerCase();
+        List<DofItemModel> tempItems = [];
 
-        final conversionResult = await DofConversionService.convertFile(
-          file: file,
-          customFileName: fileName,
-        );
-
-        if (conversionResult.success) {
-          setState(() {
-            _statusMessage = 'Conversão concluída com sucesso!\n'
-                '${conversionResult.items.length} itens processados\n'
-                'Tempo: ${conversionResult.duration.inMilliseconds}ms';
-            _xmlContent = conversionResult.xmlContent;
-            _conversionResult = conversionResult;
-            _isError = false;
-          });
+        // Chama o Parser correto baseado na extensão do arquivo
+        if (extension == '.xlsx' || extension == '.xls') {
+          tempItems = await ExcelParserService.parseFile(file: file);
+        } else if (extension == '.csv') {
+          tempItems = await CsvParserService.parseFile(file: file);
         } else {
-          setState(() {
-            _statusMessage = 'Erro na conversão:\n${conversionResult.errorMessage}';
-            _isError = true;
-          });
+          throw Exception('Formato de arquivo não suportado: $extension');
         }
+
+        if (tempItems.isEmpty) {
+          throw Exception('A planilha está vazia ou não contém dados válidos.');
+        }
+
+        setState(() {
+          _parsedItems = tempItems;
+          _statusMessage = 'Sucesso: ${_parsedItems.length} itens lidos.';
+          _isError = false;
+        });
       } else {
         setState(() {
-          _statusMessage = 'Nenhum arquivo selecionado.';
+          _statusMessage = 'Seleção cancelada pelo usuário.';
           _isError = false;
         });
       }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Erro ao ler/converter: ${e.toString()}';
+        _statusMessage = 'Erro ao ler arquivo: ${e.toString()}';
         _isError = true;
+        _parsedItems.clear();
       });
     } finally {
       if (mounted) setState(() => _isImporting = false);
     }
   }
 
-  Future<void> _downloadXml() async {
-    if (_xmlContent == null) return;
+  Future<void> _confirmarESalvar() async {
+    setState(() => _isSaving = true);
 
     try {
-      /* --- CÓDIGO ANTIGO DO FILE SAVER (COMENTADO) ---
-      Uint8List bytes = Uint8List.fromList(_xmlContent!.codeUnits);
-      
-      await FileSaver.instance.saveFile(
-        name: "Planilha_DOF_Convertida.xml", 
-        bytes: bytes,
-        mimeType: MimeType.xml,
-      );
-      ------------------------------------------------ */
+      // 1. Acessa o Isar Datasource através do Provider
+      final datasource = ref.read(dofLocalDatasourceProvider);
 
-      // --- NOVO CÓDIGO DE COMPARTILHAMENTO ---
-      await Share.share(
-        _xmlContent!,
-        subject: 'Planilha_DOF_Convertida.xml',
-      );
+      // 2. (Opcional, mas recomendado) Limpa o banco antigo para não duplicar com planilhas velhas
+      await datasource.clearAll();
 
-      setState(() {
-        _statusMessage = 'Arquivo aberto para compartilhamento!';
-        // _statusMessage = 'Download iniciado com sucesso!'; // Antiga mensagem
-      });
+      // 3. Salva a nova lista no Banco de Dados!
+      await datasource.saveDofItems(_parsedItems);
+
+      if (mounted) {
+        // Atualiza o estado em memória para transição suave
+        ref.read(parsedDofItemsProvider.notifier).updateItems(_parsedItems);
+        // Navega para a próxima tela
+        context.go('/fiscalizacao');
+      }
     } catch (e) {
       setState(() {
-        _statusMessage = 'Erro ao compartilhar: ${e.toString()}';
-        // _statusMessage = 'Erro ao baixar: ${e.toString()}'; // Antiga mensagem
+        _statusMessage = 'Erro ao salvar no banco de dados: $e';
         _isError = true;
       });
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool canConfirm = _parsedItems.isNotEmpty && !_isImporting && !_isSaving;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -124,77 +140,135 @@ class _UploadDofScreenState extends State<UploadDofScreen> {
         ),
         backgroundColor: AppColors.green,
         leading: IconButton(
-            icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/')),
+          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          onPressed: () => context.go('/'),
+        ),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.upload_file_rounded, size: 80, color: AppColors.green),
-              const SizedBox(height: 24),
-              Text('Importar Planilha DOF', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 16),
-              if (_statusMessage != null)
-                Text(
-                  _statusMessage!,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _isError ? Colors.red : Colors.black87,
-                    fontWeight: FontWeight.w600,
-                  ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppColors.lightGrey),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.upload_file_rounded, size: 60, color: AppColors.green),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Importar Planilha DOF',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_statusMessage != null)
+                      Text(
+                        _statusMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _isError ? Colors.red : Colors.grey[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.green,
+                          foregroundColor: AppColors.white,
+                        ),
+                        onPressed: _isImporting || _isSaving ? null : _pickExcelFile,
+                        child: _isImporting
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: AppColors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Selecionar Planilha'),
+                      ),
+                    ),
+                  ],
                 ),
-              const SizedBox(height: 32),
-              if (_xmlContent != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                    onPressed: _downloadXml,
-                    icon: const Icon(Icons.share, color: Colors.white), 
-                    label: const Text('Compartilhar XML', style: TextStyle(color: Colors.white)),
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.green),
-                    onPressed: _isImporting ? null : _pickAndConvertFile,
-                    child: _isImporting
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text('Selecionar Planilha', style: TextStyle(color: Colors.white)),
-                  ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: _parsedItems.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Nenhum dado para exibir.\nFaça o upload da planilha.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Color(0xFF9E9E9E)),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          headingRowColor: WidgetStateProperty.all(AppColors.lightGrey),
+                          columns: const [
+                            DataColumn(label: Text('Número')),
+                            DataColumn(label: Text('Produto')),
+                            DataColumn(label: Text('Espécie')),
+                            DataColumn(label: Text('Saldo Total')),
+                            DataColumn(label: Text('Unid.')),
+                          ],
+                          rows: _parsedItems.map((item) {
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(item.numero)),
+                                DataCell(Text(item.produto)),
+                                // Puxando o nome científico como espécie para a tabela
+                                DataCell(Text(item.especieCientifico)), 
+                                DataCell(Text(item.saldoTotal.toString())),
+                                DataCell(Text(item.unidade)),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.green,
+                  disabledBackgroundColor: Colors.grey[300],
                 ),
-              if (_xmlContent != null) ...[
-                const SizedBox(height: 16),
-                if (_conversionResult != null) ...[
-                  Text(
-                    'Itens válidos: ${_conversionResult!.validationResult?.validItems}/${_conversionResult!.validationResult?.totalItems}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _xmlContent = null;
-                      _statusMessage = null;
-                      _conversionResult = null;
-                    });
-                  },
-                  child: const Text('Escolher outra planilha', style: TextStyle(color: Colors.grey)),
-                )
-              ]
-            ],
-          ),
+                onPressed: canConfirm ? _confirmarESalvar : null,
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Confirmar e Prosseguir',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );
