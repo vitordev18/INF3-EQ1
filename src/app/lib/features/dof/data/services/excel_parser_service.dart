@@ -6,13 +6,11 @@ import 'package:uuid/uuid.dart';
 class ExcelParserService {
   static const _uuid = Uuid();
 
-  /// Parseia um arquivo Excel e retorna lista de DofItemModel
   static Future<List<DofItemModel>> parseFile({required File file}) async {
     try {
       final bytes = await file.readAsBytes();
       final excel = Excel.decodeBytes(bytes);
 
-      // Usa primeira planilha
       if (excel.tables.isEmpty) {
         throw Exception('Arquivo Excel vazio');
       }
@@ -24,7 +22,6 @@ class ExcelParserService {
     }
   }
 
-  /// Parseia uma tabela do Excel
   static List<DofItemModel> _parseTable(Sheet table, String sheetName) {
     try {
       print('[FISCALIZA] ⚙️ FASE 1: PARSING - Excel Workbook');
@@ -35,7 +32,6 @@ class ExcelParserService {
         throw Exception('Planilha vazia');
       }
 
-      // Extrai headers da primeira linha
       final headerRow = table.rows[0];
       final headers = _normalizeHeaders(
         headerRow.map((cell) => cell?.value?.toString() ?? '').toList()
@@ -46,7 +42,6 @@ class ExcelParserService {
         print('[FISCALIZA] │  ✓ "${headerRow[i]?.value}" → "${headers[i]}"');
       }
 
-      // Valida colunas obrigatórias
       bool hasRequiredColumns = _validateRequiredColumns(headers);
       if (!hasRequiredColumns) {
         throw Exception('Colunas obrigatórias não encontradas');
@@ -56,12 +51,10 @@ class ExcelParserService {
       final items = <DofItemModel>[];
       print('[FISCALIZA] ⚙️ FASE 2: EXTRAÇÃO DE DADOS');
 
-      // Processa linhas de dados (a partir da linha 1)
       for (int i = 1; i < table.rows.length; i++) {
         try {
           final row = table.rows[i];
 
-          // Pula linhas vazias
           if (row.every((cell) => cell == null || cell.value.toString().isEmpty)) {
             continue;
           }
@@ -82,7 +75,6 @@ class ExcelParserService {
     }
   }
 
-  /// Converte uma linha Excel para DofItemModel
   static DofItemModel _rowToItem(List<Data?> row, List<String> headers, int lineNumber) {
     final data = _mapRowToData(row, headers);
 
@@ -98,7 +90,6 @@ class ExcelParserService {
     );
   }
 
-  /// Mapeia valores da linha Excel para chaves conhecidas
   static Map<String, dynamic> _mapRowToData(List<Data?> row, List<String> headers) {
     final data = <String, dynamic>{};
 
@@ -110,7 +101,6 @@ class ExcelParserService {
     return data;
   }
 
-  /// Normaliza nomes de colunas
   static List<String> _normalizeHeaders(List<String> headers) {
     return headers.map((header) {
       final normalized = header.toLowerCase().trim();
@@ -135,26 +125,22 @@ class ExcelParserService {
     }).toList();
   }
 
-  /// Valida se as colunas obrigatórias estão presentes
   static bool _validateRequiredColumns(List<String> headers) {
     const required = ['numero', 'produto', 'especieCientifico', 'nomePopular', 'saldoLivre', 'saldoTotal'];
     return required.every((field) => headers.contains(field));
   }
 
-  /// Extrai valor da célula Excel
   static String _getValue(dynamic value, {String defaultValue = ''}) {
     if (value == null) return defaultValue;
     return value.toString().trim();
   }
 
-  /// Converte valor para double, tratando vírgula brasileira
   static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
     if (value is int) return value.toDouble();
 
     String str = value.toString().trim();
-    // Tratamento de vírgula brasileira
     str = str.replaceAll(',', '.');
 
     try {

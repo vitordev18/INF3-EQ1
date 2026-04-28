@@ -5,11 +5,8 @@ part 'dof_item_model.g.dart';
 
 @Collection()
 class DofItemModel implements DofItem {
-  // ID numérico obrigatório para o funcionamento interno do Isar
   Id isarId = Isar.autoIncrement;
 
-  // Declaramos os campos com @override para respeitar o DofItem,
-  // mas agora eles estão visíveis para o gerador do Isar!
   @override
   String id;
 

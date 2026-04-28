@@ -7,7 +7,6 @@ import 'dart:convert';
 class CsvParserService {
   static const _uuid = Uuid();
 
-  /// Parseia um arquivo CSV e retorna lista de DofItemModel
   static Future<List<DofItemModel>> parseFile({required File file}) async {
     try {
       final content = await file.readAsString(
@@ -19,7 +18,6 @@ class CsvParserService {
     }
   }
 
-  /// Parseia conteúdo CSV em string
   static List<DofItemModel> _parseContent(String csvContent) {
     try {
       final List<List<dynamic>> rows = const CsvToListConverter().convert(
@@ -32,7 +30,6 @@ class CsvParserService {
         throw Exception('Arquivo CSV vazio');
       }
 
-      // Pula as linhas iniciais (como a ",,,Itens,,,") até achar a linha de cabeçalho real
       while (rows.isNotEmpty &&
           !rows[0].join().toLowerCase().contains('produto')) {
         rows.removeAt(0);
@@ -50,7 +47,6 @@ class CsvParserService {
         print('[FISCALIZA] │  ✓ "${rows[0][i]}" → "${headers[i]}"');
       }
 
-      // Validar colunas obrigatórias
       bool hasRequiredColumns = _validateRequiredColumns(headers);
       if (!hasRequiredColumns) {
         throw Exception('Colunas obrigatórias não encontradas');
@@ -64,7 +60,7 @@ class CsvParserService {
         try {
           final row = rows[i];
           if (row.isEmpty || row.every((cell) => cell.toString().isEmpty)) {
-            continue; // Pula linhas vazias
+            continue;
           }
 
           final item = _rowToItem(row, headers, i + 1);
@@ -85,7 +81,6 @@ class CsvParserService {
     }
   }
 
-  /// Converte uma linha CSV para DofItemModel
   static DofItemModel _rowToItem(
     List<dynamic> row,
     List<String> headers,
@@ -105,7 +100,6 @@ class CsvParserService {
     );
   }
 
-  /// Mapeia valores da linha para chaves conhecidas
   static Map<String, dynamic> _mapRowToData(
     List<dynamic> row,
     List<String> headers,
@@ -119,7 +113,6 @@ class CsvParserService {
     return data;
   }
 
-  /// Normaliza nomes de colunas
   static List<String> _normalizeHeaders(List<String> headers) {
     return headers.map((header) {
       final normalized = header.toLowerCase().trim();
@@ -154,7 +147,6 @@ class CsvParserService {
     }).toList();
   }
 
-  /// Valida se as colunas obrigatórias estão presentes
   static bool _validateRequiredColumns(List<String> headers) {
     const required = [
       'numero',
@@ -167,20 +159,17 @@ class CsvParserService {
     return required.every((field) => headers.contains(field));
   }
 
-  /// Converte valor para string
   static String _getString(dynamic value, {String defaultValue = ''}) {
     if (value == null) return defaultValue;
     return value.toString().trim();
   }
 
-  /// Converte valor para double, tratando vírgula brasileira
   static double _parseDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
     if (value is int) return value.toDouble();
 
     String str = value.toString().trim();
-    // Tratamento de vírgula brasileira
     str = str.replaceAll(',', '.');
 
     try {

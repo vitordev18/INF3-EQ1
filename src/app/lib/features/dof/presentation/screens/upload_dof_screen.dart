@@ -3,16 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
-import 'package:path/path.dart' as p; // Necessário para pegar a extensão (.csv ou .xlsx)
-
+import 'package:path/path.dart' as p;
 import 'package:app/core/theme/app_colors.dart';
-// ATENÇÃO: Ajuste estes imports para os caminhos corretos do seu projeto
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/dof/data/services/excel_parser_service.dart';
 import 'package:app/features/dof/data/services/csv_parser_service.dart';
-import 'package:app/features/dof/presentation/providers/dof_providers.dart'; 
+import 'package:app/features/dof/presentation/providers/dof_providers.dart';
 
-// Atualizamos o Notifier para usar o DofItemModel oficial
 class ParsedDofItemsNotifier extends Notifier<List<DofItemModel>> {
   @override
   List<DofItemModel> build() => [];
@@ -39,7 +36,6 @@ class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
   String? _statusMessage;
   bool _isError = false;
 
-  // Lista tipada com o modelo do Isar
   List<DofItemModel> _parsedItems = [];
 
   Future<void> _pickExcelFile() async {
@@ -64,7 +60,6 @@ class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
         final extension = p.extension(file.path).toLowerCase();
         List<DofItemModel> tempItems = [];
 
-        // Chama o Parser correto baseado na extensão do arquivo
         if (extension == '.xlsx' || extension == '.xls') {
           tempItems = await ExcelParserService.parseFile(file: file);
         } else if (extension == '.csv') {
@@ -103,19 +98,13 @@ class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
     setState(() => _isSaving = true);
 
     try {
-      // 1. Acessa o Isar Datasource através do Provider
       final datasource = ref.read(dofLocalDatasourceProvider);
 
-      // 2. (Opcional, mas recomendado) Limpa o banco antigo para não duplicar com planilhas velhas
       await datasource.clearAll();
-
-      // 3. Salva a nova lista no Banco de Dados!
       await datasource.saveDofItems(_parsedItems);
 
       if (mounted) {
-        // Atualiza o estado em memória para transição suave
         ref.read(parsedDofItemsProvider.notifier).updateItems(_parsedItems);
-        // Navega para a próxima tela
         context.go('/fiscalizacao');
       }
     } catch (e) {
@@ -230,8 +219,7 @@ class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
                               cells: [
                                 DataCell(Text(item.numero)),
                                 DataCell(Text(item.produto)),
-                                // Puxando o nome científico como espécie para a tabela
-                                DataCell(Text(item.especieCientifico)), 
+                                DataCell(Text(item.especieCientifico)),
                                 DataCell(Text(item.saldoTotal.toString())),
                                 DataCell(Text(item.unidade)),
                               ],

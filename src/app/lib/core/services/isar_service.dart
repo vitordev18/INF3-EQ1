@@ -10,13 +10,12 @@ class IsarService {
   }
 
   Future<Isar> openDB() async {
-    // Evita abrir instâncias duplicadas no Flutter
     if (Isar.instanceNames.isEmpty) {
       final dir = await getApplicationDocumentsDirectory();
       return await Isar.open(
-        [DofItemModelSchema], // Schema que acabamos de gerar
+        [DofItemModelSchema],
         directory: dir.path,
-        inspector: true, // Habilita o painel de debug do Isar
+        inspector: true,
       );
     }
     return Future.value(Isar.getInstance());

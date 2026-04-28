@@ -10,11 +10,9 @@ class DofValidatorService {
     'saldoTotal',
   ];
 
-  /// Valida um item DOF completo
   static ValidationResult validateItem(DofItemModel item) {
     final errors = <String>[];
 
-    // Validar campos de texto não vazios
     if (item.numero.trim().isEmpty) {
       errors.add('Campo "Número" não pode estar vazio');
     }
@@ -27,21 +25,15 @@ class DofValidatorService {
     if (item.nomePopular.trim().isEmpty) {
       errors.add('Campo "Nome Popular" não pode estar vazio');
     }
-
-    // Validar valores numéricos
     if (item.saldoLivre < 0) {
       errors.add('Saldo Livre deve ser >= 0');
     }
     if (item.saldoTotal < 0) {
       errors.add('Saldo Total deve ser >= 0');
     }
-
-    // Validar regra de negócio: Saldo Livre <= Saldo Total
     if (item.saldoLivre > item.saldoTotal) {
       errors.add('Saldo Livre não pode ser maior que Saldo Total');
     }
-
-    // Validar unidade
     if (item.unidade.trim().isEmpty) {
       errors.add('Campo "Unidade" não pode estar vazio');
     }
@@ -52,7 +44,6 @@ class DofValidatorService {
     );
   }
 
-  /// Valida uma lista de itens
   static ValidationBatchResult validateBatch(List<DofItemModel> items) {
     int validCount = 0;
     final invalidItems = <int, ValidationResult>{};
@@ -74,10 +65,8 @@ class DofValidatorService {
     );
   }
 
-  /// Obtém campos obrigatórios
   static List<String> getRequiredFields() => _requiredFields;
 
-  /// Valida se todas as colunas obrigatórias estão presentes
   static bool hasAllRequiredColumns(List<String> headers) {
     final lowerHeaders = headers.map((h) => h.toLowerCase()).toList();
 
@@ -90,7 +79,6 @@ class DofValidatorService {
     });
   }
 
-  /// Mapeamento de nomes de colunas alternativas
   static const Map<String, List<String>> _columnMappings = {
     'numero': ['número', 'num', 'order', 'id', 'nº'],
     'produto': ['product', 'tipo'],
