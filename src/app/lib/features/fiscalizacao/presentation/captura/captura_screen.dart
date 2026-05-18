@@ -35,8 +35,15 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(capturaNotifierProvider.notifier).initModel();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final notifier = ref.read(capturaNotifierProvider.notifier);
+      await notifier.initModel();
+
+      final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+      final existing = await ds.getByDofItemId(widget.dofItem.id);
+      if (existing != null && mounted) {
+        await notifier.loadFromExisting(existing);
+      }
     });
   }
 
