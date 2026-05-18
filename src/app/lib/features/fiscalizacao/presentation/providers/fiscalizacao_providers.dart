@@ -500,4 +500,44 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
       state = state.copyWith(isProcessing: false);
     }
   }
+
+  Future<void> loadFromExisting(FiscalizacaoRegistroModel registro) async {
+    state = state.copyWith(isProcessing: true);
+    try {
+      final sessions = <FotoSession>[];
+      for (var i = 0; i < registro.fotoPaths.length; i++) {
+        final file = File(registro.fotoPaths[i]);
+        if (!await file.exists()) continue;
+
+        final bytes = await file.readAsBytes();
+        final decoded = img.decodeImage(bytes);
+
+        List<Recognition> detections = [];
+        if (i < registro.detecoesPorFoto.length) {
+          final list = jsonDecode(registro.detecoesPorFoto[i]) as List;
+          detections = list
+              .map((j) => Recognition.fromJson(j as Map<String, dynamic>))
+              .toList();
+        }
+
+        sessions.add(FotoSession(
+          imageFile: file,
+          decodedImage: decoded,
+          detections: detections,
+          awaitingRegionSelection: false,
+        ));
+      }
+
+      state = state.copyWith(
+        fotos: sessions,
+        currentIndex: sessions.isNotEmpty ? sessions.length - 1 : 0,
+        isProcessing: false,
+        isEditMode: false,
+        isRegionMode: false,
+      );
+    } catch (e) {
+      debugPrint('[Captura] Erro ao carregar registro existente: $e');
+      state = state.copyWith(isProcessing: false);
+    }
+  }
 }
