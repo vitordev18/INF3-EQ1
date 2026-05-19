@@ -31,6 +31,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   Offset? _draggingCenterOverride;
   bool _significantDrag = false;
   Size? _currentWidgetSize;
+  bool _hasExistingSession = false;
 
   @override
   void initState() {
@@ -42,6 +43,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
       final existing = await ds.getByDofItemId(widget.dofItem.id);
       if (existing != null && mounted) {
+        setState(() => _hasExistingSession = true);
         await notifier.loadFromExisting(existing);
       }
     });
@@ -409,8 +411,10 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
+          Column(
+            children: [
           _HeaderCard(
             dofItem: widget.dofItem,
             totalCount: totalCount,
@@ -994,6 +998,29 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
               ],
             ),
           ),
+        ],
+          ),
+          if (_hasExistingSession && state.isProcessing && state.fotos.isEmpty)
+            Container(
+              color: Colors.black.withValues(alpha: 0.6),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: AppColors.green),
+                    SizedBox(height: 12),
+                    Text(
+                      'Carregando sessão...',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
