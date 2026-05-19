@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
@@ -179,7 +180,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     state = state.copyWith(isProcessing: true);
     try {
       final bytes = await file.readAsBytes();
-      final decoded = img.decodeImage(bytes);
+      final decoded = await compute(img.decodeImage, bytes);
       final session = FotoSession(
         imageFile: file,
         decodedImage: decoded,
@@ -510,7 +511,8 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         if (!await file.exists()) continue;
 
         final bytes = await file.readAsBytes();
-        final decoded = img.decodeImage(bytes);
+        final decoded = await compute(img.decodeImage, bytes);
+        if (decoded == null) continue;
 
         List<Recognition> detections = [];
         if (i < registro.detecoesPorFoto.length) {
