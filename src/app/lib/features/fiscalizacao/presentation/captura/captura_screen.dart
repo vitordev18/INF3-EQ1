@@ -181,31 +181,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     ref.read(capturaNotifierProvider.notifier).removePhoto(index);
   }
 
-  Future<void> _confirmNewSession() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Nova sessão'),
-        content:
-            const Text('Limpar todas as fotos e começar do zero?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child:
-                const Text('Limpar', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    ref.read(capturaNotifierProvider.notifier).clearAll();
-    _transformController.value = Matrix4.identity();
-  }
-
   ButtonStyle _ghostButtonStyle({required bool isActive}) {
     if (isActive) {
       return OutlinedButton.styleFrom(
@@ -378,14 +353,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          if (state.fotos.isNotEmpty)
-            TextButton(
-              onPressed: _confirmNewSession,
-              child: const Text(
-                'Nova sessão',
-                style: TextStyle(color: AppColors.black, fontSize: 13),
-              ),
-            ),
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: state.modelError
@@ -891,7 +858,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                 .read(capturaNotifierProvider.notifier)
                                 .setIsRegionMode(!state.isRegionMode),
                             icon: const Icon(Icons.crop_free, size: 18),
-                            label: const Text('Selecionar Área'),
+                            label: const Text('Área'),
                             style: _ghostButtonStyle(
                                 isActive: state.isRegionMode),
                           ),
@@ -906,6 +873,21 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                             label: const Text('Editar'),
                             style: _ghostButtonStyle(
                                 isActive: state.isEditMode),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push(
+                              '/fiscalizacao/captura/medidas',
+                              extra: {
+                                'dofItem': widget.dofItem,
+                                'fotoIndex': state.currentIndex,
+                              },
+                            ),
+                            icon: const Icon(Icons.straighten, size: 18),
+                            label: const Text('Medidas'),
+                            style: _ghostButtonStyle(isActive: false),
                           ),
                         ),
                         if (state.isEditMode &&
