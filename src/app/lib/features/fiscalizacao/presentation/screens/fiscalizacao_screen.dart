@@ -1,20 +1,22 @@
 import 'package:app/core/theme/app_colors.dart';
+import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/dof/presentation/screens/upload_dof_screen.dart';
+import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
+import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-
-enum StatusFiscalizacao { pendente, emAndamento, concluido, excedente }
 
 class FiscalizacaoHubScreen extends ConsumerStatefulWidget {
   const FiscalizacaoHubScreen({super.key});
 
   @override
-  ConsumerState<FiscalizacaoHubScreen> createState() => _FiscalizacaoHubScreenState();
+  ConsumerState<FiscalizacaoHubScreen> createState() =>
+      _FiscalizacaoHubScreenState();
 }
 
-class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
+class _FiscalizacaoHubScreenState
+    extends ConsumerState<FiscalizacaoHubScreen> {
   Color _getStatusColor(StatusFiscalizacao status) {
     switch (status) {
       case StatusFiscalizacao.pendente:
@@ -59,7 +61,8 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
         backgroundColor: AppColors.green,
         title: const Text(
           'Hub de Fiscalização',
-          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: AppColors.black, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.black),
@@ -76,14 +79,23 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
           : ListView.separated(
               padding: const EdgeInsets.all(16.0),
               itemCount: produtosLidos.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              separatorBuilder: (context, i) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final produto = produtosLidos[index];
 
-                final statusAtual = StatusFiscalizacao.pendente;
+                // Read real status from Isar
+                final registroAsync =
+                    ref.watch(registroPorItemProvider(produto.id));
+                final statusAtual = registroAsync.whenOrNull(
+                      data: (r) => r?.status,
+                    ) ??
+                    StatusFiscalizacao.pendente;
                 final statusColor = _getStatusColor(statusAtual);
 
-                final saldoFormatado = produto.saldoTotal;
+                // Count from last registro (if any)
+                final contagemSalva = registroAsync.whenOrNull(
+                  data: (r) => r?.contagemTotal,
+                );
 
                 return Card(
                   elevation: 0,
@@ -100,7 +112,8 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
@@ -114,11 +127,15 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: statusColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.green, width: 2),
+                                  color:
+                                      statusColor.withValues(alpha: 0.1),
+                                  borderRadius:
+                                      BorderRadius.circular(8),
+                                  border: Border.all(
+                                      color: statusColor, width: 1.5),
                                 ),
                                 child: Text(
                                   _getStatusText(statusAtual),
@@ -134,7 +151,9 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'Espécie: ${produto.especieCientifico} (${produto.nomePopular})',
-                            style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                            style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey.shade700),
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -146,7 +165,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Saldo Declarado: ${saldoFormatado.toStringAsFixed(2)} ${produto.unidade}',
+                                'Saldo Declarado: ${produto.saldoTotal.toStringAsFixed(2)} ${produto.unidade}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -155,6 +174,27 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                               ),
                             ],
                           ),
+                          if (contagemSalva != null) ...[
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle_outline,
+                                  size: 16,
+                                  color: statusColor,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Contagem: $contagemSalva peças',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -168,7 +208,8 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
         icon: const Icon(Icons.add, color: AppColors.white),
         label: const Text(
           'Produto Extra',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+              color: AppColors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );

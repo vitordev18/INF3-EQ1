@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../features/dof/data/models/dof_item_model.dart';
+import '../../features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
 
 class IsarService {
   late Future<Isar> db;
@@ -13,7 +14,7 @@ class IsarService {
     if (Isar.instanceNames.isEmpty) {
       final dir = await getApplicationDocumentsDirectory();
       return await Isar.open(
-        [DofItemModelSchema],
+        [DofItemModelSchema, FiscalizacaoRegistroModelSchema],
         directory: dir.path,
         inspector: true,
       );

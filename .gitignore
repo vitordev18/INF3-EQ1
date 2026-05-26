@@ -1,0 +1,8 @@
+# Brainstorming / visual companion sessions
+.superpowers/
+
+# Playwright browser automation artifacts
+.playwright-mcp/
+
+# Screenshot artifacts
+ifood-reference.png
