@@ -12,9 +12,9 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (context, state) => SplashScreen()),
-      GoRoute(path: '/upload-dof', builder: (context, state) => UploadDofScreen()),
-      GoRoute(path: '/fiscalizacao', builder: (context, state) => FiscalizacaoHubScreen()),
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      GoRoute(path: '/upload-dof', builder: (context, state) => const UploadDofScreen()),
+      GoRoute(path: '/fiscalizacao', builder: (context, state) => const FiscalizacaoHubScreen()),
       GoRoute(
         path: '/fiscalizacao/captura',
         builder: (context, state) {
