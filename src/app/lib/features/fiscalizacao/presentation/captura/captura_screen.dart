@@ -186,7 +186,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       return OutlinedButton.styleFrom(
         side: const BorderSide(color: AppColors.green, width: 1.5),
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         minimumSize: const Size.fromHeight(40),
         backgroundColor: AppColors.green.withValues(alpha: 0.12),
         foregroundColor: AppColors.green,
@@ -195,7 +195,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     return OutlinedButton.styleFrom(
       side: BorderSide(color: Colors.grey.shade400, width: 1.5),
       shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       minimumSize: const Size.fromHeight(40),
       foregroundColor: Colors.grey.shade700,
     );
@@ -762,7 +762,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                     horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade300),
                 ),
                 child: Column(
@@ -837,7 +837,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                             fontSize: 14,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(50),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
@@ -1025,7 +1025,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                   width: 48,
                   decoration: BoxDecoration(
                     color: AppColors.green.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.add,
                       color: Colors.white, size: 20),
@@ -1051,7 +1051,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                   Container(
                     width: 48,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       border: isActive
                           ? Border.all(color: AppColors.green, width: 2)
                           : Border.all(
