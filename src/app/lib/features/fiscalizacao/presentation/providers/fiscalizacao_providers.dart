@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:app/core/services/yolo_service.dart';
+import 'package:app/core/utils/formatting_converter.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/dof/presentation/providers/dof_providers.dart';
 import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_local_datasource.dart';
@@ -338,6 +339,20 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     );
   }
 
+  /// Remove a foto e limpa as medições associadas do banco, reindexando as demais.
+  Future<void> removePhotoAndCleanup(
+    int index,
+    String dofItemId,
+    FiscalizacaoLocalDatasource datasource,
+  ) async {
+    if (index < 0 || index >= state.fotos.length) return;
+    // Remove do banco: medições da foto removida + reindexar restantes
+    await datasource.deleteMedicoesDaFoto(dofItemId, index);
+    await datasource.reindexMedicoesAposRemocao(dofItemId, index);
+    // Atualiza estado em memória
+    removePhoto(index);
+  }
+
   void clearAll() {
     final wasReady = state.modelReady;
     state = CapturaState(modelReady: wasReady);
@@ -475,9 +490,31 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
       }
 
       final totalCount = state.totalCount;
-      final status = totalCount <= dofItem.saldoTotal
-          ? StatusFiscalizacao.concluido
-          : StatusFiscalizacao.excedente;
+
+      // Buscar medições salvas e calcular volume total
+      final medicoes = await datasource.getMedicoesByDofItem(dofItem.id);
+      final volumeTotalM3 = medicoes.fold<double>(
+        0.0,
+        (sum, g) => sum + FormattingConverter.calcularVolume(
+          larguraCm: g.larguraCm,
+          alturaCm: g.alturaCm,
+          comprimentoM: g.comprimentoM,
+          quantidade: g.quantidade,
+        ),
+      );
+
+      // Status: só concluído/excedente se TODAS as peças contadas foram medidas
+      final totalMedido = medicoes.fold(0, (s, m) => s + m.quantidade);
+      final todosMediados = totalMedido >= totalCount;
+
+      final StatusFiscalizacao status;
+      if (!todosMediados || volumeTotalM3 == 0.0) {
+        status = StatusFiscalizacao.emAndamento;
+      } else if (volumeTotalM3 <= dofItem.saldoTotal) {
+        status = StatusFiscalizacao.concluido;
+      } else {
+        status = StatusFiscalizacao.excedente;
+      }
 
       final existing = await datasource.getByDofItemId(dofItem.id);
 
@@ -489,6 +526,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         dataCaptura: DateTime.now(),
         status: status,
         detecoesPorFoto: detecoesPorFoto,
+        volumeTotalM3: volumeTotalM3,
       );
       if (existing != null) {
         registro.isarId = existing.isarId;
