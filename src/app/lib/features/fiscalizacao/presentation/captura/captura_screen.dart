@@ -148,7 +148,43 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   Future<void> _saveAndPop() async {
+    final state = ref.read(capturaNotifierProvider);
+
+    // Verificar se há medições salvas para todas as peças contadas
     final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    final medicoes = await ds.getMedicoesByDofItem(widget.dofItem.id);
+    final totalMedido = medicoes.fold(0, (s, m) => s + m.quantidade);
+    final totalContado = state.totalCount;
+
+    if (totalContado > 0 && totalMedido < totalContado) {
+      if (!mounted) return;
+      final continuar = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Medição incompleta'),
+          content: Text(
+            'Foram contadas $totalContado peças, mas apenas $totalMedido foram medidas. '
+            'O status da fiscalização permanecerá como "Em Andamento".\n\n'
+            'Deseja salvar assim mesmo?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                'Salvar assim mesmo',
+                style: TextStyle(color: Colors.orange.shade700),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (continuar != true || !mounted) return;
+    }
+
     await ref
         .read(capturaNotifierProvider.notifier)
         .saveCaptura(widget.dofItem, ds);
@@ -178,7 +214,10 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    ref.read(capturaNotifierProvider.notifier).removePhoto(index);
+    final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    await ref
+        .read(capturaNotifierProvider.notifier)
+        .removePhotoAndCleanup(index, widget.dofItem.id, ds);
   }
 
   ButtonStyle _ghostButtonStyle({required bool isActive}) {
@@ -333,7 +372,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     final state = ref.watch(capturaNotifierProvider);
     final session = state.current;
     final totalCount = state.totalCount;
-    final isOver = totalCount > widget.dofItem.saldoTotal;
+    final registroAsync = ref.watch(registroPorItemProvider(widget.dofItem.id));
+    final volumeTotalM3 = registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
+    final isOver = volumeTotalM3 > 0.0
+        ? volumeTotalM3 > widget.dofItem.saldoTotal
+        : totalCount > widget.dofItem.saldoTotal;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -386,6 +429,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
             dofItem: widget.dofItem,
             totalCount: totalCount,
             isOver: isOver,
+            volumeTotalM3: volumeTotalM3,
           ),
 
           // ── Image area ──────────────────────────────────────────────
@@ -1097,19 +1141,21 @@ class _HeaderCard extends StatelessWidget {
   final DofItemModel dofItem;
   final int totalCount;
   final bool isOver;
+  final double volumeTotalM3;
 
   const _HeaderCard({
     required this.dofItem,
     required this.totalCount,
     required this.isOver,
+    this.volumeTotalM3 = 0.0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final showVolume = volumeTotalM3 > 0.0;
     return Container(
       color: Colors.white,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           Expanded(
@@ -1119,16 +1165,14 @@ class _HeaderCard extends StatelessWidget {
               children: [
                 Text(
                   dofItem.produto,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${dofItem.especieCientifico} (${dofItem.nomePopular})',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1144,19 +1188,28 @@ class _HeaderCard extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Contagem',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey.shade600)),
               Text(
-                '$totalCount',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: isOver
-                      ? Colors.red.shade700
-                      : AppColors.green,
-                ),
+                showVolume ? 'Volume' : 'Contagem',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
+              if (showVolume)
+                Text(
+                  '${volumeTotalM3.toStringAsFixed(3)} m³',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isOver ? Colors.red.shade700 : AppColors.green,
+                  ),
+                )
+              else
+                Text(
+                  '$totalCount',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: isOver ? Colors.red.shade700 : AppColors.green,
+                  ),
+                ),
             ],
           ),
         ],
@@ -1177,7 +1230,7 @@ class _RegionSelectorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final allRegions = [
       ...savedRegions,
-      if (draggingRegion != null) draggingRegion!,
+      ?draggingRegion,
     ];
 
     for (int i = 0; i < allRegions.length; i++) {
