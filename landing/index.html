@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fiscaliza — Fiscalização Florestal Digital</title>
+  <meta name="description" content="Fiscaliza converte DOF em inspeções digitais com contagem por Visão Computacional, validação automática e laudo PDF. 100% offline.">
+  <meta property="og:title"       content="Fiscaliza — Fiscalização Florestal Digital">
+  <meta property="og:description" content="Importe o DOF, valide os saldos automaticamente e inspecione produtos madeireiros com IA — tudo offline.">
+  <meta property="og:type"        content="website">
+  <meta property="og:image"       content="assets/og-image.png">
+  <meta name="twitter:card"       content="summary_large_image">
+
+  <!-- FOUC prevention: aplica data-theme ANTES da primeira renderização -->
+  <script>
+    (function () {
+      var t = localStorage.getItem('theme');
+      if (t) { document.documentElement.setAttribute('data-theme', t); return; }
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     NAVBAR
+     ═══════════════════════════════════════════ -->
+<nav id="navbar" aria-label="Navegação principal">
+  <div class="container nav-inner">
+
+    <a href="#" class="nav-logo">
+      <img src="assets/logo.png" alt="" aria-hidden="true" width="30" height="30"
+           onerror="this.style.display='none'">
+      Fiscaliza
+    </a>
+
+    <ul class="nav-links">
+      <li><a href="#problema">O Problema</a></li>
+      <li><a href="#features">Funcionalidades</a></li>
+      <li><a href="#como">Como Funciona</a></li>
+      <li><a href="#confianca">Por que confiar?</a></li>
+    </ul>
+
+    <div class="nav-actions">
+      <button class="btn-theme" id="themeToggle" aria-label="Alternar tema">🌙</button>
+      <a href="#cta" class="btn-nav-cta">⬇ Baixar APK</a>
+      <button class="hamburger" id="hamburger"
+              aria-expanded="false" aria-controls="navMobile" aria-label="Abrir menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+  </div>
+</nav>
+
+<!-- Mobile nav -->
+<div id="navMobile" aria-hidden="true">
+  <ul>
+    <li><a href="#problema"  onclick="document.getElementById('navMobile').classList.remove('open')">O Problema</a></li>
+    <li><a href="#features"  onclick="document.getElementById('navMobile').classList.remove('open')">Funcionalidades</a></li>
+    <li><a href="#como"      onclick="document.getElementById('navMobile').classList.remove('open')">Como Funciona</a></li>
+    <li><a href="#confianca" onclick="document.getElementById('navMobile').classList.remove('open')">Por que confiar?</a></li>
+  </ul>
+  <div class="nav-mobile-actions">
+    <a href="#cta"  class="btn-primary">⬇ Baixar APK</a>
+    <a href="https://github.com/vitordev18/INF3-EQ1" target="_blank" rel="noopener"
+       class="btn-secondary">Ver repo →</a>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════
+     HERO — BENTO GRID (5 células)
+     ═══════════════════════════════════════════ -->
+<section id="hero">
+  <div class="container">
+    <div class="hero-grid">
+
+      <!-- Célula 1: Headline + CTA (~55% esquerda) -->
+      <div class="hero-cell hero-cell-1">
+        <div>
+          <span class="hero-eyebrow">✦ Fiscalização Florestal Digital</span>
+          <h1 class="hero-title">
+            Sem papel.<br>
+            <em>Sem erros.</em><br>
+            Sem conexão.
+          </h1>
+        </div>
+        <p class="hero-sub">
+          Importe o DOF, valide os saldos automaticamente e inspecione
+          produtos madeireiros com Visão Computacional — tudo offline,
+          com laudo PDF pronto para entrega ao órgão regulador.
+        </p>
+        <div>
+          <div class="hero-actions">
+            <a href="#cta" class="btn-primary">⬇ Baixar APK</a>
+            <a href="https://github.com/vitordev18/INF3-EQ1" target="_blank"
+               rel="noopener" class="btn-secondary">Ver repositório →</a>
+          </div>
+          <div class="hero-tags">
+            <span class="hero-tag">Flutter</span>
+            <span class="hero-tag">Android</span>
+            <span class="hero-tag">iOS</span>
+            <span class="hero-tag">YOLO</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Célula 2: Screenshot da tela de contagem (tall, direita) -->
+      <div class="hero-cell hero-cell-2">
+        <div class="phone-wrap">
+          <div class="phone-frame">
+            <div class="phone-screen">
+            <picture>
+              <source srcset="assets/screenshot-contagem.webp" type="image/webp">
+              <img class="screenshot" src="assets/screenshot-contagem.jpg"
+                   alt="Captura de tela do app Fiscaliza mostrando contagem de 219 peças de madeira identificadas com marcações em verde"
+                   onerror="this.style.display='none'">
+            </picture>
+            <!-- Placeholder CSS exibido enquanto a imagem não estiver disponível -->
+            <div class="phone-placeholder">
+              <div class="pp-bar">
+                <div class="pp-bar-dot"></div>
+                <div class="pp-bar-dot"></div>
+                <div class="pp-bar-dot"></div>
+              </div>
+              <div class="pp-header">Fiscaliza &nbsp; 🌙</div>
+              <div class="pp-count-grid">
+                <div class="pp-count-dot">1</div><div class="pp-count-dot">2</div>
+                <div class="pp-count-dot">3</div><div class="pp-count-dot">4</div>
+                <div class="pp-count-dot">5</div><div class="pp-count-dot">6</div>
+                <div class="pp-count-dot">7</div><div class="pp-count-dot">8</div>
+                <div class="pp-count-dot">9</div><div class="pp-count-dot">10</div>
+                <div class="pp-count-dot">11</div><div class="pp-count-dot">12</div>
+                <div class="pp-count-dot">13</div><div class="pp-count-dot">14</div>
+                <div class="pp-count-dot">15</div><div class="pp-count-dot">16</div>
+                <div class="pp-count-dot">17</div><div class="pp-count-dot">18</div>
+                <div class="pp-count-dot">19</div><div class="pp-count-dot">20</div>
+                <div class="pp-count-dot">21</div><div class="pp-count-dot">22</div>
+                <div class="pp-count-dot">23</div><div class="pp-count-dot">24</div>
+                <div class="pp-count-dot">25</div>
+              </div>
+              <div class="pp-count-footer">
+                <div class="pp-count-label">219x madeira</div>
+                <div class="pp-count-total">Total: 219 objeto(s)</div>
+              </div>
+            </div>
+            </div><!-- /phone-screen -->
+          </div><!-- /phone-frame -->
+        </div><!-- /phone-wrap -->
+      </div><!-- /hero-cell-2 -->
+
+      <!-- Célula 3: Badge 100% Offline -->
+      <div class="hero-cell hero-cell-3">
+        <div class="badge-icon" aria-hidden="true">📵</div>
+        <div class="badge-label">Conectividade</div>
+        <div class="badge-value">100% Offline</div>
+      </div>
+
+      <!-- Célula 4: Badge Visão Computacional -->
+      <div class="hero-cell hero-cell-4">
+        <div class="badge-icon" aria-hidden="true">🔭</div>
+        <div class="badge-label">Tecnologia</div>
+        <div class="badge-value">Visão Computacional</div>
+      </div>
+
+      <!-- Célula 5: Badge Relatório PDF -->
+      <div class="hero-cell hero-cell-5">
+        <div class="badge-icon" aria-hidden="true">📄</div>
+        <div>
+          <div class="badge-label">Saída</div>
+          <div class="badge-value">Relatório PDF</div>
+        </div>
+      </div>
+
+    </div><!-- /hero-grid -->
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     O PROBLEMA
+     ═══════════════════════════════════════════ -->
+<section id="problema">
+  <div class="container">
+    <p class="section-label">O Problema</p>
+    <h2 class="section-title">Por que a fiscalização<br>ainda é manual?</h2>
+    <div class="problema-grid">
+
+      <div class="problema-card">
+        <div class="problema-num" aria-hidden="true">01</div>
+        <h3>Planilhas sem padrão</h3>
+        <p>Dados do DOF chegam em Excel ou CSV com colunas diferentes a cada emissão. A conferência manual consome horas antes de chegar ao campo.</p>
+      </div>
+
+      <div class="problema-card">
+        <div class="problema-num" aria-hidden="true">02</div>
+        <h3>Erros comprometem laudos</h3>
+        <p>Verificar volumes, espécies e saldos à mão é suscetível a falhas que invalidam o laudo e expõem o fiscal a questionamentos jurídicos.</p>
+      </div>
+
+      <div class="problema-card">
+        <div class="problema-num" aria-hidden="true">03</div>
+        <h3>Sem conectividade no campo</h3>
+        <p>Áreas de fiscalização muitas vezes não têm sinal. Sistemas online travam. O agente fica sem suporte na hora crítica da inspeção.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     O QUE MUDA
+     ═══════════════════════════════════════════ -->
+<section id="muda">
+  <div class="container">
+    <p class="section-label">O Que Muda</p>
+    <h2 class="section-title">Com o Fiscaliza,<br>tudo é diferente.</h2>
+    <div class="muda-grid">
+
+      <div class="muda-card">
+        <span class="muda-icon" aria-hidden="true">📵</span>
+        <h3>Funciona sem internet</h3>
+        <p>Tudo processado no dispositivo. Sem depender de 4G em mata ou área remota. Você inspeciona, o app registra.</p>
+      </div>
+
+      <div class="muda-card">
+        <span class="muda-icon" aria-hidden="true">📄</span>
+        <h3>Relatório PDF gerado</h3>
+        <p>O Fiscaliza gera automaticamente o laudo em PDF. Sem digitação, sem retrabalho, sem erros de conversão.</p>
+      </div>
+
+      <div class="muda-card">
+        <span class="muda-icon" aria-hidden="true">✅</span>
+        <h3>Saldos validados na hora</h3>
+        <p>O app confere saldo livre vs. total para cada espécie antes de você registrar. Inconsistências aparecem antes de assinar o laudo.</p>
+      </div>
+
+      <div class="muda-card">
+        <span class="muda-icon" aria-hidden="true">📷</span>
+        <h3>Evidência fotográfica integrada</h3>
+        <p>Aponte a câmera para a madeira e o app conta e identifica as peças. Foto e contagem ficam registradas em cada item inspecionado.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     FUNCIONALIDADES — BENTO GRID (4 células)
+     ═══════════════════════════════════════════ -->
+<section id="features">
+  <div class="container">
+    <p class="section-label">Funcionalidades</p>
+    <h2 class="section-title">Tudo que você precisa,<br>no bolso.</h2>
+
+    <div class="features-grid">
+
+      <!-- Célula A: Hub de Fiscalização (~55% topo) -->
+      <div class="feat-cell feat-cell-a">
+        <div class="phone-wrap">
+          <div class="phone-frame">
+            <div class="phone-screen">
+            <picture>
+              <source srcset="assets/screenshot-hub.webp" type="image/webp">
+              <img class="screenshot" src="assets/screenshot-hub.jpg"
+                   alt="Tela do Hub de Fiscalização listando espécies com status Pendente"
+                   loading="lazy" onerror="this.style.display='none'">
+            </picture>
+            <div class="phone-placeholder">
+              <div class="pp-bar">
+                <div class="pp-bar-dot"></div><div class="pp-bar-dot"></div><div class="pp-bar-dot"></div>
+              </div>
+              <div class="pp-header">← Hub de Fiscalização</div>
+              <div class="pp-body">
+                <div class="pp-item">
+                  <div class="pp-dot orange"></div>
+                  <div class="pp-item-text">
+                    <div class="pp-line w80"></div>
+                    <div class="pp-badge">Pendente</div>
+                  </div>
+                </div>
+                <div class="pp-item">
+                  <div class="pp-dot orange"></div>
+                  <div class="pp-item-text">
+                    <div class="pp-line w60"></div>
+                    <div class="pp-badge">Pendente</div>
+                  </div>
+                </div>
+                <div class="pp-item">
+                  <div class="pp-dot green"></div>
+                  <div class="pp-item-text">
+                    <div class="pp-line w80"></div>
+                    <div class="pp-badge" style="background:rgba(55,192,100,.2);color:#37c064;border-color:rgba(55,192,100,.4)">Concluído</div>
+                  </div>
+                </div>
+                <div class="pp-item">
+                  <div class="pp-dot orange"></div>
+                  <div class="pp-item-text">
+                    <div class="pp-line w40"></div>
+                    <div class="pp-badge">Pendente</div>
+                  </div>
+                </div>
+                <div class="pp-item">
+                  <div class="pp-dot orange"></div>
+                  <div class="pp-item-text">
+                    <div class="pp-line w60"></div>
+                    <div class="pp-badge">Pendente</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div><!-- /phone-screen -->
+          </div><!-- /phone-frame -->
+        </div><!-- /phone-wrap -->
+        <div class="feat-cell-title">Rastreamento por item</div>
+        <div class="feat-cell-desc">Status individual por espécie em tempo real: Pendente, Em Andamento ou Concluído.</div>
+      </div>
+
+      <!-- Célula B: Upload DOF (~45% topo) -->
+      <div class="feat-cell feat-cell-b">
+        <div class="phone-wrap">
+          <div class="phone-frame">
+            <div class="phone-screen">
+            <picture>
+              <source srcset="assets/screenshot-dof.webp" type="image/webp">
+              <img class="screenshot" src="assets/screenshot-dof.jpg"
+                   alt="Tela de importação do DOF com planilha carregada mostrando 9 itens lidos"
+                   loading="lazy" onerror="this.style.display='none'">
+            </picture>
+            <div class="phone-placeholder">
+              <div class="pp-bar">
+                <div class="pp-bar-dot"></div><div class="pp-bar-dot"></div><div class="pp-bar-dot"></div>
+              </div>
+              <div class="pp-header">← Upload do DOF</div>
+              <div class="pp-body">
+                <div class="pp-table">
+                  <div class="pp-table-header">
+                    <div class="pp-th">#</div>
+                    <div class="pp-th">Produto</div>
+                    <div class="pp-th">Espécie</div>
+                  </div>
+                  <div class="pp-table-row">
+                    <div class="pp-td">1</div>
+                    <div class="pp-td">M. benef.</div>
+                    <div class="pp-td">Dipteryx odorata</div>
+                  </div>
+                  <div class="pp-table-row">
+                    <div class="pp-td">2</div>
+                    <div class="pp-td">M. benef.</div>
+                    <div class="pp-td">Couratari obl.</div>
+                  </div>
+                  <div class="pp-table-row">
+                    <div class="pp-td">3</div>
+                    <div class="pp-td">M. serrada</div>
+                    <div class="pp-td">Erisma unc.</div>
+                  </div>
+                  <div class="pp-table-row">
+                    <div class="pp-td">4</div>
+                    <div class="pp-td">M. serrada</div>
+                    <div class="pp-td">Goupia glabra</div>
+                  </div>
+                  <div class="pp-table-row">
+                    <div class="pp-td">5</div>
+                    <div class="pp-td">P. acabado</div>
+                    <div class="pp-td">Apuleia leio.</div>
+                  </div>
+                </div>
+                <div class="pp-confirm">Confirmar e Prosseguir</div>
+              </div>
+            </div>
+            </div><!-- /phone-screen -->
+          </div><!-- /phone-frame -->
+        </div><!-- /phone-wrap -->
+        <div class="feat-cell-title">Importação DOF automática</div>
+        <div class="feat-cell-desc">Excel ou CSV — o app reconhece o formato e extrai todos os itens sem configuração.</div>
+      </div>
+
+      <!-- Célula C: Contagem (~35% baixo esquerda) -->
+      <div class="feat-cell feat-cell-c">
+        <div class="phone-wrap">
+          <div class="phone-frame">
+            <div class="phone-screen">
+            <picture>
+              <source srcset="assets/screenshot-contagem.webp" type="image/webp">
+              <img class="screenshot" src="assets/screenshot-contagem.jpg"
+                   alt="Tela de contagem por câmera com 219 madeiras identificadas e numeradas em verde"
+                   loading="lazy" onerror="this.style.display='none'">
+            </picture>
+            <div class="phone-placeholder">
+              <div class="pp-bar"><div class="pp-bar-dot"></div></div>
+              <div class="pp-header">Fiscaliza</div>
+              <div class="pp-count-grid">
+                <div class="pp-count-dot">1</div><div class="pp-count-dot">2</div>
+                <div class="pp-count-dot">3</div><div class="pp-count-dot">4</div>
+                <div class="pp-count-dot">5</div><div class="pp-count-dot">6</div>
+                <div class="pp-count-dot">7</div><div class="pp-count-dot">8</div>
+                <div class="pp-count-dot">9</div><div class="pp-count-dot">10</div>
+                <div class="pp-count-dot">11</div><div class="pp-count-dot">12</div>
+                <div class="pp-count-dot">13</div><div class="pp-count-dot">14</div>
+                <div class="pp-count-dot">15</div>
+              </div>
+              <div class="pp-count-footer">
+                <div class="pp-count-label">219x madeira</div>
+                <div class="pp-count-total">Total: 219 objeto(s)</div>
+              </div>
+            </div>
+            </div><!-- /phone-screen -->
+          </div><!-- /phone-frame -->
+        </div><!-- /phone-wrap -->
+        <div class="feat-cell-title">Contagem por câmera</div>
+        <div class="feat-cell-desc">YOLO conta as peças em tempo real, no próprio dispositivo.</div>
+      </div>
+
+      <!-- Célula D: Destaques textuais (~65% baixo direita) -->
+      <div class="feat-cell feat-cell-d">
+        <h3 class="feat-heading">Recursos<br>que fazem<br>diferença.</h3>
+
+        <div class="feat-bullet">
+          <span class="feat-bullet-icon" aria-hidden="true">✦</span>
+          <div class="feat-bullet-body">
+            <h4>Visão Computacional embarcada</h4>
+            <p>Modelo YOLO identifica e conta peças de madeira por foto. Processamento 100% local, sem enviar dados a nenhum servidor.</p>
+          </div>
+        </div>
+
+        <div class="feat-bullet">
+          <span class="feat-bullet-icon" aria-hidden="true">✦</span>
+          <div class="feat-bullet-body">
+            <h4>Validação automática de dados</h4>
+            <p>Campos obrigatórios, saldo livre vs. total e margem de 10% por espécie — tudo verificado antes de assinar o laudo.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /features-grid -->
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     COMO FUNCIONA
+     ═══════════════════════════════════════════ -->
+<section id="como">
+  <div class="container">
+    <p class="section-label">Como Funciona</p>
+    <h2 class="section-title">Três passos para uma<br>fiscalização sem erros.</h2>
+    <div class="como-grid">
+
+      <div class="como-card">
+        <div class="como-step" aria-label="Passo 1">1</div>
+        <h3>Importe o arquivo DOF</h3>
+        <p>Selecione o Excel ou CSV exportado do sistema DOF. O Fiscaliza reconhece o formato e extrai todos os itens automaticamente.</p>
+      </div>
+
+      <div class="como-card">
+        <div class="como-step" aria-label="Passo 2">2</div>
+        <h3>Valide e converta</h3>
+        <p>O sistema verifica cada item, aponta inconsistências e prepara o laudo no padrão oficial — pronto para entrega ao órgão regulador.</p>
+      </div>
+
+      <div class="como-card">
+        <div class="como-step" aria-label="Passo 3">3</div>
+        <h3>Fiscalize no campo</h3>
+        <p>Use o app para registrar inspeções, capturar fotos, contar peças com IA e atualizar o status de cada item em tempo real.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     CONFIANÇA
+     ═══════════════════════════════════════════ -->
+<section id="confianca">
+  <div class="container">
+    <p class="section-label">Por que confiar?</p>
+    <h2 class="section-title">Construído para<br>quem não pode errar.</h2>
+    <div class="confianca-grid">
+
+      <div class="confianca-card">
+        <span class="confianca-icon" aria-hidden="true">🔒</span>
+        <h3>Dados 100% locais</h3>
+        <p>Nenhum dado é enviado a servidores externos. Tudo fica no dispositivo — sem risco de vazamento de informações sensíveis.</p>
+      </div>
+
+      <div class="confianca-card">
+        <span class="confianca-icon" aria-hidden="true">📡</span>
+        <h3>Funciona offline</h3>
+        <p>Desenvolvido para áreas sem sinal. O app opera completamente offline, sem depender de internet em nenhuma etapa.</p>
+      </div>
+
+      <div class="confianca-card">
+        <span class="confianca-icon" aria-hidden="true">📋</span>
+        <h3>Laudo no padrão oficial</h3>
+        <p>O PDF gerado segue o formato exigido pelo sistema regulatório — sem adaptações manuais, sem risco de rejeição.</p>
+      </div>
+
+      <div class="confianca-card">
+        <span class="confianca-icon" aria-hidden="true">🧮</span>
+        <h3>Validação antes da assinatura</h3>
+        <p>Saldos, campos obrigatórios e consistência dos dados são verificados automaticamente. Você só assina quando está tudo certo.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     CTA FINAL
+     ═══════════════════════════════════════════ -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-card">
+      <p class="cta-label">Download</p>
+      <h2 class="cta-title">Leve o Fiscaliza<br>para o campo.</h2>
+      <p class="cta-sub">Instale o aplicativo no seu Android, importe o arquivo DOF e comece a fiscalizar. Sem cadastro, sem servidor, sem complicação.</p>
+      <div class="cta-actions">
+        <a href="#" class="btn-cta-primary">⬇ Baixar APK</a>
+        <a href="https://github.com/vitordev18/INF3-EQ1" target="_blank"
+           rel="noopener" class="btn-cta-secondary">Ver código no GitHub →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════ -->
+<footer>
+  <div class="container footer-inner">
+
+    <a href="#" class="footer-logo">
+      <img src="assets/logo.png" alt="" aria-hidden="true" width="26" height="26"
+           onerror="this.style.display='none'">
+      Fiscaliza
+    </a>
+
+    <p class="footer-meta">Fiscalização florestal digital · Projeto TCC INF3-EQ1</p>
+
+    <div class="footer-links">
+      <a href="https://github.com/vitordev18/INF3-EQ1" target="_blank" rel="noopener">GitHub</a>
+      <a href="#" target="_blank" rel="noopener">LinkedIn</a>
+    </div>
+
+  </div>
+</footer>
+
+<script src="script.js" defer></script>
+</body>
+</html>
