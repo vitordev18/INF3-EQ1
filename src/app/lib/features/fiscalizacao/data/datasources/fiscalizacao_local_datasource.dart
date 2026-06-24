@@ -1,7 +1,11 @@
 import 'package:isar/isar.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/services/isar_service.dart';
+import '../../../../core/utils/formatting_converter.dart';
+import '../../../dof/data/models/dof_item_model.dart';
 import '../models/fiscalizacao_registro_model.dart';
 import '../models/medicao_grupo_model.dart';
+import '../../domain/entities/status_fiscalizacao.dart';
 
 class FiscalizacaoLocalDatasource {
   final IsarService _isarService;
@@ -74,6 +78,12 @@ class FiscalizacaoLocalDatasource {
     });
   }
 
+  /// Soma a quantidade de peças medidas em todas as fotos de um DOF item.
+  Future<int> getTotalMedidoByDofItem(String dofItemId) async {
+    final medicoes = await getMedicoesByDofItem(dofItemId);
+    return medicoes.fold<int>(0, (s, m) => s + m.quantidade);
+  }
+
   /// Retorna todos os grupos de medição de um DOF item (todas as fotos).
   Future<List<MedicaoGrupoModel>> getMedicoesByDofItem(String dofItemId) async {
     final isar = await _isarService.db;
@@ -111,6 +121,51 @@ class FiscalizacaoLocalDatasource {
         await isar.medicaoGrupoModels.delete(g.isarId);
       }
     });
+  }
+
+  /// Recalcula volume total das medições, deriva o status e persiste o registro.
+  /// Cria um registro mínimo se ainda não existir.
+  Future<void> recalcularEPersistirVolume(
+    DofItemModel dofItem,
+    int contagemTotal,
+  ) async {
+    final medicoes = await getMedicoesByDofItem(dofItem.id);
+    final volume = medicoes.fold<double>(
+      0.0,
+      (sum, m) => sum + FormattingConverter.calcularVolume(
+        larguraCm: m.larguraCm,
+        alturaCm: m.alturaCm,
+        comprimentoM: m.comprimentoM,
+        quantidade: m.quantidade,
+      ),
+    );
+
+    final totalMedido = medicoes.fold(0, (s, m) => s + m.quantidade);
+    final todosMediados = contagemTotal > 0 && totalMedido >= contagemTotal;
+
+    final StatusFiscalizacao status;
+    if (!todosMediados || volume == 0.0) {
+      status = StatusFiscalizacao.emAndamento;
+    } else if (volume <= dofItem.saldoTotal) {
+      status = StatusFiscalizacao.concluido;
+    } else {
+      status = StatusFiscalizacao.excedente;
+    }
+
+    final existing = await getByDofItemId(dofItem.id);
+    final registro = FiscalizacaoRegistroModel(
+      id: existing?.id ?? const Uuid().v4(),
+      dofItemId: dofItem.id,
+      contagemTotal: contagemTotal,
+      fotoPaths: existing?.fotoPaths ?? const [],
+      dataCaptura: existing?.dataCaptura ?? DateTime.now(),
+      status: status,
+      detecoesPorFoto: existing?.detecoesPorFoto ?? const [],
+      volumeTotalM3: volume,
+    );
+    if (existing != null) registro.isarId = existing.isarId;
+
+    await saveRegistro(registro);
   }
 
   /// Reindexar medições após remoção de foto: decrementa fotoIndex de todos com fotoIndex > removedIndex.
