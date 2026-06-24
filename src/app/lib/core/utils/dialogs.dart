@@ -18,7 +18,7 @@ Future<bool> showConfirmDialog(
 
   final result = await showDialog<bool>(
     context: context,
-    barrierColor: Colors.black.withOpacity(0.4),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
     builder: (ctx) => Dialog(
       backgroundColor: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -73,9 +73,7 @@ Future<bool> showConfirmDialog(
                       foregroundColor: AppColors.grey,
                       side: const BorderSide(color: AppColors.lightGrey, width: 1.5),
                       minimumSize: const Size(0, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       textStyle: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 14,
@@ -94,9 +92,7 @@ Future<bool> showConfirmDialog(
                       foregroundColor: AppColors.white,
                       minimumSize: const Size(0, 48),
                       elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       textStyle: const TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 14,
