@@ -42,8 +42,8 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
     }
   }
 
-  void _iniciarFiscalizacao(DofItemModel produto) {
-    context.push('/fiscalizacao/captura', extra: produto);
+  void _iniciarFiscalizacao(DofItemModel dofItem) {
+    context.push('/fiscalizacao/captura', extra: dofItem);
   }
 
   void _adicionarProdutoExtra() {
@@ -79,16 +79,19 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
               itemCount: produtosLidos.length,
               separatorBuilder: (context, i) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final produto = produtosLidos[index];
+                final dofItem = produtosLidos[index];
 
                 // Read real status from Isar
                 final registroAsync = ref.watch(
-                  registroPorItemProvider(produto.id),
+                  registroPorItemProvider(dofItem.id),
                 );
                 final statusAtual =
                     registroAsync.whenOrNull(data: (r) => r?.status) ??
                     StatusFiscalizacao.pendente;
                 final statusColor = _getStatusColor(statusAtual);
+
+                final volumeTotalM3 =
+                    registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
 
                 // Count from last registro (if any)
                 final contagemSalva = registroAsync.whenOrNull(
@@ -103,7 +106,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                   ),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
-                    onTap: () => _iniciarFiscalizacao(produto),
+                    onTap: () => _iniciarFiscalizacao(dofItem),
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
@@ -115,7 +118,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  produto.produto,
+                                  dofItem.produto,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -149,7 +152,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Espécie: ${produto.especieCientifico} (${produto.nomePopular})',
+                            'Espécie: ${dofItem.especieCientifico} (${dofItem.nomePopular})',
                             style: TextStyle(
                               fontSize: 14,
                               color: Colors.grey.shade700,
@@ -165,7 +168,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                'Saldo Declarado: ${produto.saldoTotal.toStringAsFixed(2)} ${produto.unidade}',
+                                'Saldo Declarado: ${dofItem.saldoTotal.toStringAsFixed(2)} ${dofItem.unidade}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -174,7 +177,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                               ),
                             ],
                           ),
-                          if (contagemSalva != null) ...[
+                          if (volumeTotalM3 != 0.0) ...[
                             const SizedBox(height: 4),
                             Row(
                               children: [
@@ -185,7 +188,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Contagem: $contagemSalva peças',
+                                  'Volume Total: ${volumeTotalM3.toStringAsFixed(3)} m³',
                                   style: TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
