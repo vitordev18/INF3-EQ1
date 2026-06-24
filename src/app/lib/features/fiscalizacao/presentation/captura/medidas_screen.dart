@@ -4,11 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:app/core/theme/app_colors.dart';
+import 'package:app/core/utils/dialogs.dart';
 import 'package:app/core/utils/formatting_converter.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
 import 'package:app/features/fiscalizacao/data/models/medicao_grupo_model.dart';
-import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
 import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
 
 class MedidasScreen extends ConsumerStatefulWidget {
@@ -247,80 +246,26 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
     final yoloCount = _yoloCountFor(capturaState);
 
     if (_totalPecasMedidas < yoloCount) {
-      final continuar = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Medição incompleta'),
-          content: Text(
-            'Você mediu $_totalPecasMedidas de $yoloCount peças nesta foto. '
-            'O status da fiscalização permanecerá como "Em Andamento".\n\n'
-            'Deseja salvar assim mesmo?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                'Salvar assim mesmo',
-                style: TextStyle(color: Colors.orange.shade700),
-              ),
-            ),
-          ],
-        ),
+      final continuar = await showConfirmDialog(
+        context,
+        title: 'Medição incompleta',
+        message: 'Você mediu $_totalPecasMedidas de $yoloCount peças nesta foto. '
+            'O status da fiscalização permanecerá como "Em Andamento".',
+        confirmLabel: 'Salvar',
+        variant: ConfirmDialogVariant.danger,
       );
-      if (continuar != true || !mounted) return;
+      if (!continuar || !mounted) return;
     }
 
     setState(() => _isSaving = true);
 
     try {
       final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+      final contagemTotal = ref.read(capturaNotifierProvider).totalCount;
 
-      // Medidas já persistidas — só atualiza o registro de fiscalização
-      final existing = await ds.getByDofItemId(widget.dofItem.id);
-      if (existing != null) {
-        final todosMedicoes = await ds.getMedicoesByDofItem(widget.dofItem.id);
-        final volumeTotal = todosMedicoes.fold<double>(
-          0.0,
-          (sum, m) => sum + FormattingConverter.calcularVolume(
-            larguraCm: m.larguraCm,
-            alturaCm: m.alturaCm,
-            comprimentoM: m.comprimentoM,
-            quantidade: m.quantidade,
-          ),
-        );
-
-        final totalMedido = todosMedicoes.fold(0, (s, m) => s + m.quantidade);
-        final todosMediados = totalMedido >= existing.contagemTotal;
-
-        final StatusFiscalizacao novoStatus;
-        if (!todosMediados || volumeTotal == 0.0) {
-          novoStatus = StatusFiscalizacao.emAndamento;
-        } else if (volumeTotal <= widget.dofItem.saldoTotal) {
-          novoStatus = StatusFiscalizacao.concluido;
-        } else {
-          novoStatus = StatusFiscalizacao.excedente;
-        }
-
-        final atualizado = FiscalizacaoRegistroModel(
-          id: existing.id,
-          dofItemId: existing.dofItemId,
-          contagemTotal: existing.contagemTotal,
-          fotoPaths: existing.fotoPaths,
-          dataCaptura: existing.dataCaptura,
-          status: novoStatus,
-          detecoesPorFoto: existing.detecoesPorFoto,
-          volumeTotalM3: volumeTotal,
-        );
-        atualizado.isarId = existing.isarId;
-        await ds.saveRegistro(atualizado);
-
-        ref.invalidate(registroPorItemProvider(widget.dofItem.id));
-        await ref.read(registroPorItemProvider(widget.dofItem.id).future);
-      }
+      await ds.recalcularEPersistirVolume(widget.dofItem, contagemTotal);
+      ref.invalidate(registroPorItemProvider(widget.dofItem.id));
+      await ref.read(registroPorItemProvider(widget.dofItem.id).future);
 
       if (mounted) context.pop();
     } catch (e) {
@@ -331,8 +276,12 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
     }
   }
 
-  double _calcularVolumeM3(MedicaoGrupoModel item) =>
-      item.comprimentoM * (item.larguraCm / 100) * (item.alturaCm / 100) * item.quantidade;
+  double _calcularVolumeM3(MedicaoGrupoModel item) => FormattingConverter.calcularVolume(
+        larguraCm: item.larguraCm,
+        alturaCm: item.alturaCm,
+        comprimentoM: item.comprimentoM,
+        quantidade: item.quantidade,
+      );
 
   void _mostrarAlerta(String message) {
     ScaffoldMessenger.of(context).showSnackBar(

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/core/services/yolo_service.dart';
+import 'package:app/core/utils/dialogs.dart';
 import 'package:app/core/widgets/box_painter.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
@@ -150,40 +151,21 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   Future<void> _saveAndPop() async {
     final state = ref.read(capturaNotifierProvider);
 
-    // Verificar se há medições salvas para todas as peças contadas
     final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
-    final medicoes = await ds.getMedicoesByDofItem(widget.dofItem.id);
-    final totalMedido = medicoes.fold(0, (s, m) => s + m.quantidade);
+    final totalMedido = await ds.getTotalMedidoByDofItem(widget.dofItem.id);
     final totalContado = state.totalCount;
 
     if (totalContado > 0 && totalMedido < totalContado) {
       if (!mounted) return;
-
-      final continuar = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Medição incompleta'),
-          content: Text(
-            'Foram contadas $totalContado peças, mas apenas $totalMedido foram medidas. '
-            'O status da fiscalização permanecerá como "Em Andamento".\n\n'
-            'Deseja salvar assim mesmo?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                'Salvar assim mesmo',
-                style: TextStyle(color: Colors.orange.shade700),
-              ),
-            ),
-          ],
-        ),
+      final continuar = await showConfirmDialog(
+        context,
+        title: 'Medição incompleta',
+        message: 'Foram contadas $totalContado peças, mas apenas $totalMedido foram medidas. '
+            'O status da fiscalização permanecerá como "Em Andamento".',
+        confirmLabel: 'Salvar',
+        variant: ConfirmDialogVariant.danger,
       );
-      if (continuar != true || !mounted) return;
+      if (!continuar || !mounted) return;
     }
 
     await ref
@@ -217,6 +199,9 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     await ref
         .read(capturaNotifierProvider.notifier)
         .removePhotoAndCleanup(index, widget.dofItem.id, ds);
+    final totalCount = ref.read(capturaNotifierProvider).totalCount;
+    await ds.recalcularEPersistirVolume(widget.dofItem, totalCount);
+    if (mounted) ref.invalidate(registroPorItemProvider(widget.dofItem.id));
   }
 
   ButtonStyle _ghostButtonStyle({required bool isActive}) {
@@ -429,7 +414,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
             children: [
               _HeaderCard(
                 dofItem: widget.dofItem,
-                totalCount: totalCount,
                 isOver: isOver,
                 volumeTotalM3: volumeTotalM3,
               ),
@@ -1201,13 +1185,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
 
 class _HeaderCard extends StatelessWidget {
   final DofItemModel dofItem;
-  final int totalCount;
   final bool isOver;
   final double volumeTotalM3;
 
   const _HeaderCard({
     required this.dofItem,
-    required this.totalCount,
     required this.isOver,
     this.volumeTotalM3 = 0.0,
   });
