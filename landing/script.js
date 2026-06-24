@@ -1,7 +1,6 @@
 (function () {
   'use strict';
 
-  // ── Theme ──────────────────────────────────────────────────────────────────
   const root = document.documentElement;
 
   function applyTheme(t) {
@@ -18,16 +17,17 @@
     applyTheme(next);
   });
 
-  // Sync icon state on load (FOUC script already applied data-theme)
   applyTheme(root.getAttribute('data-theme') || 'light');
 
-  // ── Navbar scroll shadow ───────────────────────────────────────────────────
   const navbar = document.getElementById('navbar');
-  window.addEventListener('scroll', () => {
-    navbar?.classList.toggle('scrolled', window.scrollY > 10);
-  }, { passive: true });
+  window.addEventListener(
+    'scroll',
+    () => {
+      navbar?.classList.toggle('scrolled', window.scrollY > 10);
+    },
+    { passive: true },
+  );
 
-  // ── Mobile menu ────────────────────────────────────────────────────────────
   const hamburger = document.getElementById('hamburger');
   const navMobile = document.getElementById('navMobile');
 
@@ -37,17 +37,31 @@
     navMobile?.setAttribute('aria-hidden', 'true');
   }
 
-  hamburger?.addEventListener('click', function () {
-    const open = navMobile.classList.toggle('open');
-    hamburger.setAttribute('aria-expanded', String(open));
-    navMobile.setAttribute('aria-hidden', String(!open));
+  function openMenu() {
+    navMobile?.classList.add('open');
+    hamburger?.setAttribute('aria-expanded', 'true');
+    navMobile?.setAttribute('aria-hidden', 'false');
+  }
+
+  hamburger?.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (navMobile?.classList.contains('open')) closeMenu();
+    else openMenu();
+  });
+
+  document.querySelectorAll('[data-mobile-link]').forEach(a => {
+    a.addEventListener('click', closeMenu);
   });
 
   document.addEventListener('click', e => {
-    if (!navbar?.contains(e.target)) closeMenu();
+    if (!navbar?.contains(e.target) && !navMobile?.contains(e.target)) closeMenu();
   });
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeMenu();
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 980) closeMenu();
   });
 })();
