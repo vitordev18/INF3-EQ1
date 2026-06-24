@@ -15,8 +15,7 @@ class FiscalizacaoHubScreen extends ConsumerStatefulWidget {
       _FiscalizacaoHubScreenState();
 }
 
-class _FiscalizacaoHubScreenState
-    extends ConsumerState<FiscalizacaoHubScreen> {
+class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
   Color _getStatusColor(StatusFiscalizacao status) {
     switch (status) {
       case StatusFiscalizacao.pendente:
@@ -61,8 +60,7 @@ class _FiscalizacaoHubScreenState
         backgroundColor: AppColors.green,
         title: const Text(
           'Hub de Fiscalização',
-          style: TextStyle(
-              color: AppColors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.black),
@@ -84,11 +82,11 @@ class _FiscalizacaoHubScreenState
                 final produto = produtosLidos[index];
 
                 // Read real status from Isar
-                final registroAsync =
-                    ref.watch(registroPorItemProvider(produto.id));
-                final statusAtual = registroAsync.whenOrNull(
-                      data: (r) => r?.status,
-                    ) ??
+                final registroAsync = ref.watch(
+                  registroPorItemProvider(produto.id),
+                );
+                final statusAtual =
+                    registroAsync.whenOrNull(data: (r) => r?.status) ??
                     StatusFiscalizacao.pendente;
                 final statusColor = _getStatusColor(statusAtual);
 
@@ -112,8 +110,7 @@ class _FiscalizacaoHubScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
@@ -128,14 +125,16 @@ class _FiscalizacaoHubScreenState
                               ),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 4),
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color:
-                                      statusColor.withValues(alpha: 0.1),
-                                  borderRadius:
-                                      BorderRadius.circular(8),
+                                  color: statusColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                      color: statusColor, width: 1.5),
+                                    color: statusColor,
+                                    width: 1.5,
+                                  ),
                                 ),
                                 child: Text(
                                   _getStatusText(statusAtual),
@@ -152,8 +151,9 @@ class _FiscalizacaoHubScreenState
                           Text(
                             'Espécie: ${produto.especieCientifico} (${produto.nomePopular})',
                             style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade700),
+                              fontSize: 14,
+                              color: Colors.grey.shade700,
+                            ),
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -208,8 +208,7 @@ class _FiscalizacaoHubScreenState
         icon: const Icon(Icons.add, color: AppColors.white),
         label: const Text(
           'Produto Extra',
-          style: TextStyle(
-              color: AppColors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
         ),
       ),
     );
