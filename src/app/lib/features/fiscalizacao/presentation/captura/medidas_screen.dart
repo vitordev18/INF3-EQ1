@@ -780,7 +780,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       child: ElevatedButton(
-        onPressed: (_listaMedidas.isEmpty || emEdicao || _isSaving) ? null : _salvarEFechar,
+        onPressed: (emEdicao || _isSaving) ? null : _salvarEFechar,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.green,
           disabledBackgroundColor: Colors.grey.shade200,
