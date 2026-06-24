@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:app/core/services/yolo_service.dart';
-import 'package:app/core/utils/formatting_converter.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/dof/presentation/providers/dof_providers.dart';
 import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_local_datasource.dart';
@@ -491,48 +490,23 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
 
       final totalCount = state.totalCount;
 
-      // Buscar medições salvas e calcular volume total
-      final medicoes = await datasource.getMedicoesByDofItem(dofItem.id);
-      final volumeTotalM3 = medicoes.fold<double>(
-        0.0,
-        (sum, g) => sum + FormattingConverter.calcularVolume(
-          larguraCm: g.larguraCm,
-          alturaCm: g.alturaCm,
-          comprimentoM: g.comprimentoM,
-          quantidade: g.quantidade,
-        ),
-      );
-
-      // Status: só concluído/excedente se TODAS as peças contadas foram medidas
-      final totalMedido = medicoes.fold(0, (s, m) => s + m.quantidade);
-      final todosMediados = totalMedido >= totalCount;
-
-      final StatusFiscalizacao status;
-      if (!todosMediados || volumeTotalM3 == 0.0) {
-        status = StatusFiscalizacao.emAndamento;
-      } else if (volumeTotalM3 <= dofItem.saldoTotal) {
-        status = StatusFiscalizacao.concluido;
-      } else {
-        status = StatusFiscalizacao.excedente;
-      }
-
+      // Persiste caminhos e detecções antes de recalcular volume/status
       final existing = await datasource.getByDofItemId(dofItem.id);
-
       final registro = FiscalizacaoRegistroModel(
         id: existing?.id ?? const Uuid().v4(),
         dofItemId: dofItem.id,
         contagemTotal: totalCount,
         fotoPaths: savedPaths,
         dataCaptura: DateTime.now(),
-        status: status,
+        status: existing?.status ?? StatusFiscalizacao.emAndamento,
         detecoesPorFoto: detecoesPorFoto,
-        volumeTotalM3: volumeTotalM3,
+        volumeTotalM3: existing?.volumeTotalM3 ?? 0.0,
       );
-      if (existing != null) {
-        registro.isarId = existing.isarId;
-      }
-
+      if (existing != null) registro.isarId = existing.isarId;
       await datasource.saveRegistro(registro);
+
+      // Recalcula volume e status com base nas medições
+      await datasource.recalcularEPersistirVolume(dofItem, totalCount);
       state = state.copyWith(isProcessing: false);
     } catch (e) {
       debugPrint('[Captura] Erro ao salvar: $e');
