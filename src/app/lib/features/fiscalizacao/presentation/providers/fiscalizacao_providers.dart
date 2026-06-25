@@ -224,52 +224,19 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         return;
       }
 
-      final regions = session.savedRegions.isNotEmpty
-          ? session.savedRegions
-          : [const Rect.fromLTWH(0, 0, 1, 1)];
+      final regions = session.savedRegions;
 
-      final List<Recognition> allDetections = [];
+      final allRaw = await _yolo.runInference(decoded);
 
-      for (final region in regions) {
-        List<Recognition> detections;
-        if (region.left == 0 &&
-            region.top == 0 &&
-            region.right == 1 &&
-            region.bottom == 1) {
-          detections = await _yolo.runInference(decoded);
-        } else {
-          final rx = (region.left * decoded.width).round();
-          final ry = (region.top * decoded.height).round();
-          final rw =
-              (region.width * decoded.width).round().clamp(1, decoded.width);
-          final rh = (region.height * decoded.height)
-              .round()
-              .clamp(1, decoded.height);
-          final cropped =
-              img.copyCrop(decoded, x: rx, y: ry, width: rw, height: rh);
-          final regional = await _yolo.runInference(cropped);
-          detections = regional
-              .map((d) => Recognition(
-                    d.classId,
-                    d.label,
-                    d.score,
-                    Rect.fromLTRB(
-                      region.left + d.location.left * region.width,
-                      region.top + d.location.top * region.height,
-                      region.left + d.location.right * region.width,
-                      region.top + d.location.bottom * region.height,
-                    ),
-                    angle: d.angle,
-                  ))
-              .toList();
-        }
-
-        for (final newD in detections) {
-          final isDup = allDetections.any((e) =>
-              YoloService.iou(newD.location, e.location) >
-              YoloService.nmsThreshold);
-          if (!isDup) allDetections.add(newD);
-        }
+      final List<Recognition> allDetections;
+      if (regions.isEmpty) {
+        allDetections = allRaw;
+      } else {
+        allDetections = allRaw.where((d) {
+          final cx = (d.location.left + d.location.right) / 2;
+          final cy = (d.location.top + d.location.bottom) / 2;
+          return regions.any((r) => r.contains(Offset(cx, cy)));
+        }).toList();
       }
 
       newFotos = [...state.fotos];
