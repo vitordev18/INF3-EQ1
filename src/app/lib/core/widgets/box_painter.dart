@@ -71,79 +71,8 @@ class BoundingBoxPainter extends CustomPainter {
       final number = i + 1;
       final color = _boxColors[d.classId % _boxColors.length];
 
-      if (d.isOBB && d.angle != null) {
-        _drawOBB(canvas, size, d, color);
-      } else {
-        _drawRegularBox(canvas, size, d, color);
-      }
-
       _drawNumberedCircle(canvas, size, d, color, number);
     }
-  }
-
-  void _drawRegularBox(Canvas canvas, Size size, Recognition d, Color color) {
-    final rect = Rect.fromLTRB(
-      d.location.left * size.width,
-      d.location.top * size.height,
-      d.location.right * size.width,
-      d.location.bottom * size.height,
-    );
-
-    canvas.drawRect(
-        rect,
-        Paint()
-          ..color = color.withValues(alpha: 0.75)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0);
-  }
-
-  void _drawOBB(Canvas canvas, Size size, Recognition d, Color color) {
-    final cx = (d.location.left + d.location.right) / 2 * size.width;
-    final cy = (d.location.top + d.location.bottom) / 2 * size.height;
-    final w = d.location.width * size.width;
-    final h = d.location.height * size.height;
-
-    final theta = d.angle!;
-    final cosA = cos(theta);
-    final sinA = sin(theta);
-    final hw = w / 2;
-    final hh = h / 2;
-
-    final corners = [
-      Offset(-hw, -hh),
-      Offset(hw, -hh),
-      Offset(hw, hh),
-      Offset(-hw, hh),
-    ];
-
-    final rotated = corners
-        .map((c) => Offset(
-              cx + c.dx * cosA - c.dy * sinA,
-              cy + c.dx * sinA + c.dy * cosA,
-            ))
-        .toList();
-
-    final path = Path()
-      ..moveTo(rotated[0].dx, rotated[0].dy)
-      ..lineTo(rotated[1].dx, rotated[1].dy)
-      ..lineTo(rotated[2].dx, rotated[2].dy)
-      ..lineTo(rotated[3].dx, rotated[3].dy)
-      ..close();
-
-    canvas.drawPath(
-        path,
-        Paint()
-          ..color = color.withValues(alpha: 0.75)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.0);
-
-    canvas.drawLine(
-        rotated[0],
-        rotated[1],
-        Paint()
-          ..color = color.withValues(alpha: 0.75)
-          ..strokeWidth = 1.5
-          ..strokeCap = StrokeCap.round);
   }
 
   @override
