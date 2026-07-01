@@ -171,6 +171,7 @@ class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
                       height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                           backgroundColor: AppColors.green,
                           foregroundColor: AppColors.white,
                         ),
@@ -235,6 +236,7 @@ class _UploadDofScreenState extends ConsumerState<UploadDofScreen> {
               height: 52,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                   backgroundColor: AppColors.green,
                   disabledBackgroundColor: Colors.grey[300],
                 ),
