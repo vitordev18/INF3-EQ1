@@ -1022,7 +1022,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                               height: 56,
                               decoration: BoxDecoration(
                                 color: AppColors.green.withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Icon(
                                 Icons.add,
@@ -1037,7 +1037,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                     // Save button
                     if (state.fotos.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(16,0, 16, 10),
                         child: SizedBox(
                           width: double.infinity,
                           height: 52,

@@ -60,7 +60,7 @@ class YoloService {
 
   static const int inputSize = 640;
   static const double confidenceThreshold = 0.25;
-  static const double nmsThreshold = 0.45;
+  static const double nmsThreshold = 0.30;
 
   bool _isNCHW = false;
   YoloModelType _modelType = YoloModelType.regular;
@@ -71,7 +71,7 @@ class YoloService {
 
   Future<void> init() async {
     _interpreter = await Interpreter.fromAsset(
-      'assets/models/yolo_madeira.tflite',
+      'assets/models/yolo_madeira2.tflite',
     );
 
     final labelsData = await rootBundle.loadString('assets/models/labels.txt');
@@ -242,6 +242,10 @@ class YoloService {
     return normalCount >= pixelCount;
   }
 
+  // Fraction of a box's area that must be covered by a higher-score box
+  // to suppress it even when IoU is below nmsThreshold.
+  static const double _containmentThreshold = 0.75;
+
   List<Recognition> _applyNMS(List<Recognition> candidates) {
     if (candidates.isEmpty) return [];
 
@@ -258,15 +262,31 @@ class YoloService {
         if (suppressed[i]) continue;
         out.add(boxes[i]);
         for (int j = i + 1; j < boxes.length; j++) {
-          if (!suppressed[j] &&
-              YoloService.iou(boxes[i].location, boxes[j].location) >
-                  nmsThreshold) {
+          if (suppressed[j]) continue;
+          if (YoloService.iou(boxes[i].location, boxes[j].location) >
+              nmsThreshold) {
+            suppressed[j] = true;
+          } else if (_overlapFraction(boxes[j].location, boxes[i].location) >
+              _containmentThreshold) {
+            // boxes[j] is mostly covered by the higher-score boxes[i]
             suppressed[j] = true;
           }
         }
       }
     }
     return out;
+  }
+
+  /// Fraction of [target]'s area that is covered by [reference].
+  static double _overlapFraction(Rect target, Rect reference) {
+    final l = max(target.left, reference.left);
+    final t = max(target.top, reference.top);
+    final r = min(target.right, reference.right);
+    final b = min(target.bottom, reference.bottom);
+    if (r <= l || b <= t) return 0.0;
+    final inter = (r - l) * (b - t);
+    final targetArea = target.width * target.height;
+    return targetArea <= 0 ? 0.0 : inter / targetArea;
   }
 
   static double iou(Rect a, Rect b) {
