@@ -17,6 +17,10 @@ class FiscalizacaoRegistroModel {
   /// Índice alinhado com fotoPaths. Default [] garante compatibilidade com registros antigos.
   List<String> detecoesPorFoto = [];
 
+  /// Soma do volume (m³) de todos os MedicaoGrupoModel desta fiscalização.
+  /// 0.0 enquanto o fiscal não preencher a tela de Medidas.
+  double volumeTotalM3 = 0.0;
+
   @enumerated
   late StatusFiscalizacao status;
 
@@ -28,5 +32,6 @@ class FiscalizacaoRegistroModel {
     required this.dataCaptura,
     required this.status,
     this.detecoesPorFoto = const [],
+    this.volumeTotalM3 = 0.0,
   });
 }

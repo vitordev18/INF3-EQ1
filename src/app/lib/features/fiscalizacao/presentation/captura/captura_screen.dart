@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/core/services/yolo_service.dart';
+import 'package:app/core/utils/dialogs.dart';
 import 'package:app/core/widgets/box_painter.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
@@ -148,7 +149,25 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   Future<void> _saveAndPop() async {
+    final state = ref.read(capturaNotifierProvider);
+
     final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    final totalMedido = await ds.getTotalMedidoByDofItem(widget.dofItem.id);
+    final totalContado = state.totalCount;
+
+    if (totalContado > 0 && totalMedido < totalContado) {
+      if (!mounted) return;
+      final continuar = await showConfirmDialog(
+        context,
+        title: 'Medição incompleta',
+        message: 'Foram contadas $totalContado peças, mas apenas $totalMedido foram medidas. '
+            'O status da fiscalização permanecerá como "Em Andamento".',
+        confirmLabel: 'Salvar',
+        variant: ConfirmDialogVariant.danger,
+      );
+      if (!continuar || !mounted) return;
+    }
+
     await ref
         .read(capturaNotifierProvider.notifier)
         .saveCaptura(widget.dofItem, ds);
@@ -162,8 +181,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Remover foto?'),
-        content:
-            const Text('Esta foto e suas detecções serão removidas.'),
+        content: const Text('Esta foto e suas detecções serão removidas.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -171,22 +189,26 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Remover',
-                style: TextStyle(color: Colors.red)),
+            child: const Text('Remover', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
-    ref.read(capturaNotifierProvider.notifier).removePhoto(index);
+    final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    await ref
+        .read(capturaNotifierProvider.notifier)
+        .removePhotoAndCleanup(index, widget.dofItem.id, ds);
+    final totalCount = ref.read(capturaNotifierProvider).totalCount;
+    await ds.recalcularEPersistirVolume(widget.dofItem, totalCount);
+    if (mounted) ref.invalidate(registroPorItemProvider(widget.dofItem.id));
   }
 
   ButtonStyle _ghostButtonStyle({required bool isActive}) {
     if (isActive) {
       return OutlinedButton.styleFrom(
         side: const BorderSide(color: AppColors.green, width: 1.5),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         minimumSize: const Size.fromHeight(40),
         backgroundColor: AppColors.green.withValues(alpha: 0.12),
         foregroundColor: AppColors.green,
@@ -194,29 +216,31 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     }
     return OutlinedButton.styleFrom(
       side: BorderSide(color: Colors.grey.shade400, width: 1.5),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       minimumSize: const Size.fromHeight(40),
       foregroundColor: Colors.grey.shade700,
     );
   }
 
   void _handlePanStart(
-      DragStartDetails details, BoxConstraints constraints, CapturaState state) {
+    DragStartDetails details,
+    BoxConstraints constraints,
+    CapturaState state,
+  ) {
     final notifier = ref.read(capturaNotifierProvider.notifier);
     final session = state.current!;
-    final inRegionMode =
-        state.isRegionMode || session.awaitingRegionSelection;
+    final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
-      notifier.setDraggingRegion(Rect.fromLTWH(
-        details.localPosition.dx / constraints.maxWidth,
-        details.localPosition.dy / constraints.maxHeight,
-        0,
-        0,
-      ));
+      notifier.setDraggingRegion(
+        Rect.fromLTWH(
+          details.localPosition.dx / constraints.maxWidth,
+          details.localPosition.dy / constraints.maxHeight,
+          0,
+          0,
+        ),
+      );
     } else if (state.isEditMode) {
-      final hitIdx =
-          _hitTestCircle(details.localPosition, extraPadding: 5);
+      final hitIdx = _hitTestCircle(details.localPosition, extraPadding: 5);
       if (hitIdx != null) {
         setState(() {
           _draggingCircleIndex = hitIdx;
@@ -231,22 +255,26 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   void _handlePanUpdate(
-      DragUpdateDetails details, BoxConstraints constraints, CapturaState state) {
+    DragUpdateDetails details,
+    BoxConstraints constraints,
+    CapturaState state,
+  ) {
     final notifier = ref.read(capturaNotifierProvider.notifier);
     final session = state.current!;
-    final inRegionMode =
-        state.isRegionMode || session.awaitingRegionSelection;
+    final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
       final dr = state.draggingRegion;
       if (dr == null) return;
       final nx = details.localPosition.dx / constraints.maxWidth;
       final ny = details.localPosition.dy / constraints.maxHeight;
-      notifier.setDraggingRegion(Rect.fromLTRB(
-        min(dr.left, nx).clamp(0.0, 1.0),
-        min(dr.top, ny).clamp(0.0, 1.0),
-        max(dr.right, nx).clamp(0.0, 1.0),
-        max(dr.bottom, ny).clamp(0.0, 1.0),
-      ));
+      notifier.setDraggingRegion(
+        Rect.fromLTRB(
+          min(dr.left, nx).clamp(0.0, 1.0),
+          min(dr.top, ny).clamp(0.0, 1.0),
+          max(dr.right, nx).clamp(0.0, 1.0),
+          max(dr.bottom, ny).clamp(0.0, 1.0),
+        ),
+      );
     } else if (state.isEditMode && _draggingCircleIndex != null) {
       final dx = details.delta.dx / constraints.maxWidth;
       final dy = details.delta.dy / constraints.maxHeight;
@@ -263,8 +291,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   void _handlePanEnd(DragEndDetails details, CapturaState state) {
     final notifier = ref.read(capturaNotifierProvider.notifier);
     final session = state.current!;
-    final inRegionMode =
-        state.isRegionMode || session.awaitingRegionSelection;
+    final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
       final dr = state.draggingRegion;
       if (dr != null && dr.width > 0.02 && dr.height > 0.02) {
@@ -333,7 +360,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     final state = ref.watch(capturaNotifierProvider);
     final session = state.current;
     final totalCount = state.totalCount;
-    final isOver = totalCount > widget.dofItem.saldoTotal;
+    final registroAsync = ref.watch(registroPorItemProvider(widget.dofItem.id));
+    final volumeTotalM3 = registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
+    final isOver = volumeTotalM3 > 0.0
+        ? volumeTotalM3 > widget.dofItem.saldoTotal
+        : false;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -356,25 +387,24 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: state.modelError
-                ? const Icon(Icons.error_outline,
-                    color: Colors.red, size: 20)
+                ? const Icon(Icons.error_outline, color: Colors.red, size: 20)
                 : !state.modelReady
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.black,
-                        ),
-                      )
-                    : Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.black,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.black,
+                    ),
+                  )
+                : Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppColors.black,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -382,605 +412,666 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
         children: [
           Column(
             children: [
-          _HeaderCard(
-            dofItem: widget.dofItem,
-            totalCount: totalCount,
-            isOver: isOver,
-          ),
+              _HeaderCard(
+                dofItem: widget.dofItem,
+                isOver: isOver,
+                volumeTotalM3: volumeTotalM3,
+              ),
 
-          // ── Image area ──────────────────────────────────────────────
-          Expanded(
-            child: session == null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image_search_outlined,
-                            size: 64, color: Colors.grey.shade400),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Selecione uma imagem para começar',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
+              // ── Image area ──────────────────────────────────────────────
+              Expanded(
+                child: session == null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.image_search_outlined,
+                              size: 64,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Selecione uma imagem para começar',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(
-                          decoration: state.isEditMode
-                              ? BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                      color: AppColors.green, width: 2),
-                                )
-                              : null,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
-                                  final s = Size(constraints.maxWidth,
-                                      constraints.maxHeight);
-                                  if (_currentWidgetSize != s) {
-                                    setState(
-                                        () => _currentWidgetSize = s);
-                                  }
-                                });
+                      )
+                    : Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Container(
+                              decoration: state.isEditMode
+                                  ? BoxDecoration(
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: AppColors.green,
+                                        width: 2,
+                                      ),
+                                    )
+                                  : null,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          final s = Size(
+                                            constraints.maxWidth,
+                                            constraints.maxHeight,
+                                          );
+                                          if (_currentWidgetSize != s) {
+                                            setState(
+                                              () => _currentWidgetSize = s,
+                                            );
+                                          }
+                                        });
 
-                                final aspectRatio =
-                                    session.decodedImage != null
+                                    final aspectRatio =
+                                        session.decodedImage != null
                                         ? session.decodedImage!.width /
-                                            session.decodedImage!.height
+                                              session.decodedImage!.height
                                         : 1.0;
 
-                                final inRegionMode = state.isRegionMode ||
-                                    session.awaitingRegionSelection;
+                                    final inRegionMode =
+                                        state.isRegionMode ||
+                                        session.awaitingRegionSelection;
 
-                                return InteractiveViewer(
-                                  transformationController:
-                                      _transformController,
-                                  panEnabled: !inRegionMode &&
-                                      !state.isEditMode,
-                                  scaleEnabled: true,
-                                  minScale: 1.0,
-                                  maxScale: 6.0,
-                                  boundaryMargin: EdgeInsets.zero,
-                                  child: AspectRatio(
-                                    aspectRatio: aspectRatio,
-                                    child: GestureDetector(
-                                      onTapUp: state.isEditMode
-                                          ? (d) => _handleEditTap(
-                                              d.localPosition, state)
-                                          : null,
-                                      onPanStart:
-                                          (inRegionMode || state.isEditMode)
+                                    return InteractiveViewer(
+                                      transformationController:
+                                          _transformController,
+                                      panEnabled:
+                                          !inRegionMode && !state.isEditMode,
+                                      scaleEnabled: true,
+                                      minScale: 1.0,
+                                      maxScale: 6.0,
+                                      boundaryMargin: EdgeInsets.zero,
+                                      child: AspectRatio(
+                                        aspectRatio: aspectRatio,
+                                        child: GestureDetector(
+                                          onTapUp: state.isEditMode
+                                              ? (d) => _handleEditTap(
+                                                  d.localPosition,
+                                                  state,
+                                                )
+                                              : null,
+                                          onPanStart:
+                                              (inRegionMode || state.isEditMode)
                                               ? (d) => _handlePanStart(
-                                                  d, constraints, state)
+                                                  d,
+                                                  constraints,
+                                                  state,
+                                                )
                                               : null,
-                                      onPanUpdate:
-                                          (inRegionMode || state.isEditMode)
+                                          onPanUpdate:
+                                              (inRegionMode || state.isEditMode)
                                               ? (d) => _handlePanUpdate(
-                                                  d, constraints, state)
+                                                  d,
+                                                  constraints,
+                                                  state,
+                                                )
                                               : null,
-                                      onPanEnd:
-                                          (inRegionMode || state.isEditMode)
-                                              ? (d) =>
-                                                  _handlePanEnd(d, state)
+                                          onPanEnd:
+                                              (inRegionMode || state.isEditMode)
+                                              ? (d) => _handlePanEnd(d, state)
                                               : null,
-                                      child: Stack(
-                                        fit: StackFit.expand,
-                                        children: [
-                                          Image.file(
-                                            session.imageFile,
-                                            fit: BoxFit.fill,
-                                          ),
-                                          if (session.detections.isNotEmpty)
-                                            CustomPaint(
-                                              painter: BoundingBoxPainter(
-                                                _resultsForDisplay(session),
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            children: [
+                                              Image.file(
+                                                session.imageFile,
+                                                fit: BoxFit.fill,
                                               ),
-                                            ),
-                                          if ((session.savedRegions
-                                                      .isNotEmpty ||
-                                                  state.draggingRegion !=
-                                                      null) &&
-                                              inRegionMode)
-                                            CustomPaint(
-                                              painter:
-                                                  _RegionSelectorPainter(
-                                                session.savedRegions,
-                                                state.draggingRegion,
-                                              ),
-                                            ),
-                                          // Region instruction chip
-                                          if (inRegionMode &&
-                                              !state.isProcessing)
-                                            Positioned(
-                                              bottom: 8,
-                                              left: 0,
-                                              right: 0,
-                                              child: Center(
-                                                child: Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 10,
+                                              if (session.detections.isNotEmpty)
+                                                CustomPaint(
+                                                  painter: BoundingBoxPainter(
+                                                    _resultsForDisplay(session),
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withValues(
-                                                            alpha: 0.90),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            20),
-                                                    border: Border.all(
-                                                      color: AppColors.green,
-                                                      width: 1.5,
-                                                    ),
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        session.awaitingRegionSelection
-                                                            ? 'Arraste para selecionar área'
-                                                            : 'Solte para confirmar',
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight:
-                                                              FontWeight.w600,
+                                                ),
+                                              if ((session
+                                                          .savedRegions
+                                                          .isNotEmpty ||
+                                                      state.draggingRegion !=
+                                                          null) &&
+                                                  inRegionMode)
+                                                CustomPaint(
+                                                  painter:
+                                                      _RegionSelectorPainter(
+                                                        session.savedRegions,
+                                                        state.draggingRegion,
+                                                      ),
+                                                ),
+                                              // Region instruction chip
+                                              if (inRegionMode &&
+                                                  !state.isProcessing)
+                                                Positioned(
+                                                  bottom: 8,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 16,
+                                                            vertical: 10,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white
+                                                            .withValues(
+                                                              alpha: 0.90,
+                                                            ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              20,
+                                                            ),
+                                                        border: Border.all(
                                                           color:
-                                                              Colors.black87,
+                                                              AppColors.green,
+                                                          width: 1.5,
                                                         ),
                                                       ),
-                                                      if (session
-                                                          .awaitingRegionSelection)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .only(
-                                                                  top: 4),
-                                                          child: Text(
-                                                            'ou toque em "Detectar"',
-                                                            style: TextStyle(
-                                                              fontSize: 11,
-                                                              color: Colors
-                                                                  .grey
-                                                                  .shade600,
+                                                      child: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            session.awaitingRegionSelection
+                                                                ? 'Arraste para selecionar área'
+                                                                : 'Solte para confirmar',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 13,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: Colors
+                                                                      .black87,
+                                                                ),
+                                                          ),
+                                                          if (session
+                                                              .awaitingRegionSelection)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    top: 4,
+                                                                  ),
+                                                              child: Text(
+                                                                'ou toque em "Detectar"',
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
+                                                                  color: Colors
+                                                                      .grey
+                                                                      .shade600,
+                                                                ),
+                                                              ),
                                                             ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              // X buttons for saved regions
+                                              if (inRegionMode)
+                                                for (
+                                                  int i = 0;
+                                                  i <
+                                                      session
+                                                          .savedRegions
+                                                          .length;
+                                                  i++
+                                                )
+                                                  Positioned(
+                                                    left:
+                                                        (session.savedRegions[i].right *
+                                                                    constraints
+                                                                        .maxWidth -
+                                                                16)
+                                                            .clamp(
+                                                              0.0,
+                                                              constraints
+                                                                      .maxWidth -
+                                                                  28,
+                                                            ),
+                                                    top:
+                                                        (session.savedRegions[i].top *
+                                                                    constraints
+                                                                        .maxHeight -
+                                                                16)
+                                                            .clamp(
+                                                              0.0,
+                                                              constraints
+                                                                      .maxHeight -
+                                                                  28,
+                                                            ),
+                                                    child: GestureDetector(
+                                                      behavior: HitTestBehavior
+                                                          .opaque,
+                                                      onTap: () => ref
+                                                          .read(
+                                                            capturaNotifierProvider
+                                                                .notifier,
+                                                          )
+                                                          .removeSavedRegion(i),
+                                                      child: Container(
+                                                        width: 20,
+                                                        height: 20,
+                                                        decoration:
+                                                            const BoxDecoration(
+                                                              color: Colors.red,
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                            ),
+                                                        child: const Icon(
+                                                          Icons.close,
+                                                          size: 12,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                              // Edit mode chip
+                                              if (state.isEditMode)
+                                                Positioned(
+                                                  bottom: 8,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: IgnorePointer(
+                                                    child: Center(
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 12,
+                                                              vertical: 6,
+                                                            ),
+                                                        decoration: BoxDecoration(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                20,
+                                                              ),
+                                                          color: Colors.white
+                                                              .withValues(
+                                                                alpha: 0.9,
+                                                              ),
+                                                          border: Border.all(
+                                                            color: Colors
+                                                                .grey
+                                                                .shade400,
                                                           ),
                                                         ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          // X buttons for saved regions
-                                          if (inRegionMode)
-                                            for (int i = 0;
-                                                i <
-                                                    session
-                                                        .savedRegions.length;
-                                                i++)
-                                              Positioned(
-                                                left: (session.savedRegions[i]
-                                                            .right *
-                                                        constraints.maxWidth -
-                                                    16)
-                                                    .clamp(
-                                                        0.0,
-                                                        constraints.maxWidth -
-                                                            28),
-                                                top: (session.savedRegions[i]
-                                                            .top *
-                                                        constraints
-                                                            .maxHeight -
-                                                    16)
-                                                    .clamp(
-                                                        0.0,
-                                                        constraints.maxHeight -
-                                                            28),
-                                                child: GestureDetector(
-                                                  behavior: HitTestBehavior
-                                                      .opaque,
-                                                  onTap: () => ref
-                                                      .read(
-                                                          capturaNotifierProvider
-                                                              .notifier)
-                                                      .removeSavedRegion(i),
-                                                  child: Container(
-                                                    width: 20,
-                                                    height: 20,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                      color: Colors.red,
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.close,
-                                                      size: 12,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                          // Edit mode chip
-                                          if (state.isEditMode)
-                                            Positioned(
-                                              bottom: 8,
-                                              left: 0,
-                                              right: 0,
-                                              child: IgnorePointer(
-                                                child: Center(
-                                                  child: Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 6,
-                                                    ),
-                                                    decoration: BoxDecoration(
-                                                      borderRadius:
-                                                          BorderRadius
-                                                              .circular(20),
-                                                      color: Colors.white
-                                                          .withValues(
-                                                              alpha: 0.9),
-                                                      border: Border.all(
-                                                          color: Colors
-                                                              .grey.shade400),
-                                                    ),
-                                                    child: Text(
-                                                      '✏  TOQUE PARA EDITAR',
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Colors
-                                                            .grey.shade600,
-                                                        letterSpacing: 0.5,
+                                                        child: Text(
+                                                          '✏  TOQUE PARA EDITAR',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: Colors
+                                                                .grey
+                                                                .shade600,
+                                                            letterSpacing: 0.5,
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
-                                          // Loading overlay
-                                          if (state.isProcessing)
-                                            Container(
-                                              color: Colors.black45,
-                                              child: const Center(
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    CircularProgressIndicator(
-                                                      color: Colors.white,
+                                              // Loading overlay
+                                              if (state.isProcessing)
+                                                Container(
+                                                  color: Colors.black45,
+                                                  child: const Center(
+                                                    child: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        CircularProgressIndicator(
+                                                          color: Colors.white,
+                                                        ),
+                                                        SizedBox(height: 12),
+                                                        Text(
+                                                          'Detectando...',
+                                                          style: TextStyle(
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
-                                                    SizedBox(height: 12),
-                                                    Text(
-                                                      'Detectando...',
-                                                      style: TextStyle(
-                                                          color: Colors.white),
-                                                    ),
-                                                  ],
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                        ],
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                        // Left navigation arrow
-                        if (state.currentIndex > 0)
-                          Positioned(
-                            left: 4,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: GestureDetector(
-                                onTap: () {
-                                  ref
-                                      .read(capturaNotifierProvider.notifier)
-                                      .navigateTo(state.currentIndex - 1);
-                                  _transformController.value =
-                                      Matrix4.identity();
-                                },
-                                child: Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.green
-                                        .withValues(alpha: 0.85),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.chevron_left,
-                                      color: Colors.white, size: 20),
+                                    );
+                                  },
                                 ),
                               ),
                             ),
-                          ),
-                        // Right navigation arrow
-                        if (state.currentIndex < state.fotos.length - 1)
-                          Positioned(
-                            right: 4,
-                            top: 0,
-                            bottom: 0,
-                            child: Center(
-                              child: GestureDetector(
-                                onTap: () {
-                                  ref
-                                      .read(capturaNotifierProvider.notifier)
-                                      .navigateTo(state.currentIndex + 1);
-                                  _transformController.value =
-                                      Matrix4.identity();
-                                },
-                                child: Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.green
-                                        .withValues(alpha: 0.85),
-                                    shape: BoxShape.circle,
+                            // Left navigation arrow
+                            if (state.currentIndex > 0)
+                              Positioned(
+                                left: 4,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      ref
+                                          .read(
+                                            capturaNotifierProvider.notifier,
+                                          )
+                                          .navigateTo(state.currentIndex - 1);
+                                      _transformController.value =
+                                          Matrix4.identity();
+                                    },
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.green.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.chevron_left,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
                                   ),
-                                  child: const Icon(Icons.chevron_right,
-                                      color: Colors.white, size: 20),
                                 ),
+                              ),
+                            // Right navigation arrow
+                            if (state.currentIndex < state.fotos.length - 1)
+                              Positioned(
+                                right: 4,
+                                top: 0,
+                                bottom: 0,
+                                child: Center(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      ref
+                                          .read(
+                                            capturaNotifierProvider.notifier,
+                                          )
+                                          .navigateTo(state.currentIndex + 1);
+                                      _transformController.value =
+                                          Matrix4.identity();
+                                    },
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.green.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.chevron_right,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+              ),
+
+              // ── Thumbnail strip ─────────────────────────────────────────
+              if (state.fotos.isNotEmpty) _buildThumbnailStrip(state),
+
+              // ── Detection card ──────────────────────────────────────────
+              if (session != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'DETECÇÕES',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade500,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getSummary(session, state.isProcessing),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (state.fotos.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'Total da sessão: $totalCount peça(s)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.green,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
                       ],
                     ),
                   ),
-          ),
-
-          // ── Thumbnail strip ─────────────────────────────────────────
-          if (state.fotos.isNotEmpty) _buildThumbnailStrip(state),
-
-          // ── Detection card ──────────────────────────────────────────
-          if (session != null)
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
                 ),
+
+              // ── Bottom buttons ──────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'DETECÇÕES',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade500,
-                        letterSpacing: 1.0,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _getSummary(session, state.isProcessing),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    if (state.fotos.length > 1)
+                    // Detectar button
+                    if (session != null &&
+                        (session.awaitingRegionSelection ||
+                            state.isRegionMode) &&
+                        !state.isProcessing)
                       Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          'Total da sessão: $totalCount peça(s)',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.green,
-                            fontWeight: FontWeight.w600,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () => ref
+                                .read(capturaNotifierProvider.notifier)
+                                .confirmRegionAndProcess(),
+                            icon: const Icon(Icons.check),
+                            label: Text(
+                              session.savedRegions.isEmpty
+                                  ? 'Detectar'
+                                  : 'Detectar ${session.savedRegions.length} Área(s)',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.green,
+                              foregroundColor: Colors.white,
+                              textStyle: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Ghost toolbar
+                    if (session != null &&
+                        !session.awaitingRegionSelection &&
+                        !state.isRegionMode)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => ref
+                                    .read(capturaNotifierProvider.notifier)
+                                    .setIsRegionMode(!state.isRegionMode),
+                                icon: const Icon(Icons.crop_free, size: 18),
+                                label: const Text('Área'),
+                                style: _ghostButtonStyle(
+                                  isActive: state.isRegionMode,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => ref
+                                    .read(capturaNotifierProvider.notifier)
+                                    .toggleEditMode(),
+                                icon: const Icon(Icons.edit, size: 18),
+                                label: const Text('Editar'),
+                                style: _ghostButtonStyle(
+                                  isActive: state.isEditMode,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => context.push(
+                                  '/fiscalizacao/captura/medidas',
+                                  extra: {
+                                    'dofItem': widget.dofItem,
+                                    'fotoIndex': state.currentIndex,
+                                  },
+                                ),
+                                icon: const Icon(Icons.straighten, size: 18),
+                                label: const Text('Medidas'),
+                                style: _ghostButtonStyle(isActive: false),
+                              ),
+                            ),
+                            if (state.isEditMode &&
+                                session.undoStack.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: OutlinedButton(
+                                    onPressed: () => ref
+                                        .read(capturaNotifierProvider.notifier)
+                                        .undo(),
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(
+                                        color: Colors.grey.shade400,
+                                        width: 1.5,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      foregroundColor: Colors.grey.shade700,
+                                    ),
+                                    child: const Icon(Icons.undo, size: 18),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                    // FAB when no photos
+                    if (state.fotos.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 30,
+                          vertical: 30,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: GestureDetector(
+                            onTap: _showImageSourceSheet,
+                            child: Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: AppColors.green.withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // Save button
+                    if (state.fotos.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: state.isProcessing ? null : _saveAndPop,
+                            icon: const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              isOver
+                                  ? 'Salvar (Excedente)'
+                                  : 'Salvar Fiscalização',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isOver
+                                  ? Colors.red.shade700
+                                  : AppColors.green,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                   ],
                 ),
               ),
-            ),
-
-          // ── Bottom buttons ──────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Detectar button
-                if (session != null &&
-                    (session.awaitingRegionSelection ||
-                        state.isRegionMode) &&
-                    !state.isProcessing)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: () => ref
-                            .read(capturaNotifierProvider.notifier)
-                            .confirmRegionAndProcess(),
-                        icon: const Icon(Icons.check),
-                        label: Text(
-                          session.savedRegions.isEmpty
-                              ? 'Detectar'
-                              : 'Detectar ${session.savedRegions.length} Área(s)',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.green,
-                          foregroundColor: Colors.white,
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(50),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Ghost toolbar
-                if (session != null &&
-                    !session.awaitingRegionSelection &&
-                    !state.isRegionMode)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => ref
-                                .read(capturaNotifierProvider.notifier)
-                                .setIsRegionMode(!state.isRegionMode),
-                            icon: const Icon(Icons.crop_free, size: 18),
-                            label: const Text('Área'),
-                            style: _ghostButtonStyle(
-                                isActive: state.isRegionMode),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => ref
-                                .read(capturaNotifierProvider.notifier)
-                                .toggleEditMode(),
-                            icon: const Icon(Icons.edit, size: 18),
-                            label: const Text('Editar'),
-                            style: _ghostButtonStyle(
-                                isActive: state.isEditMode),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.push(
-                              '/fiscalizacao/captura/medidas',
-                              extra: {
-                                'dofItem': widget.dofItem,
-                                'fotoIndex': state.currentIndex,
-                              },
-                            ),
-                            icon: const Icon(Icons.straighten, size: 18),
-                            label: const Text('Medidas'),
-                            style: _ghostButtonStyle(isActive: false),
-                          ),
-                        ),
-                        if (state.isEditMode &&
-                            session.undoStack.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: SizedBox(
-                              width: 40,
-                              height: 40,
-                              child: OutlinedButton(
-                                onPressed: () => ref
-                                    .read(capturaNotifierProvider.notifier)
-                                    .undo(),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: Colors.grey.shade400,
-                                    width: 1.5,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  foregroundColor: Colors.grey.shade700,
-                                ),
-                                child: const Icon(Icons.undo, size: 18),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-
-                // FAB when no photos
-                if (state.fotos.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 30, vertical: 30),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onTap: _showImageSourceSheet,
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color:
-                                AppColors.green.withValues(alpha: 0.85),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.add,
-                              color: Colors.white, size: 24),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // Save button
-                if (state.fotos.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            state.isProcessing ? null : _saveAndPop,
-                        icon: const Icon(Icons.check_circle,
-                            color: Colors.white),
-                        label: Text(
-                          isOver
-                              ? 'Salvar (Excedente)'
-                              : 'Salvar Fiscalização',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isOver
-                              ? Colors.red.shade700
-                              : AppColors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
+            ],
           ),
           if (_hasExistingSession && state.isProcessing && state.fotos.isEmpty)
             Container(
@@ -1025,10 +1116,9 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                   width: 48,
                   decoration: BoxDecoration(
                     color: AppColors.green.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.add,
-                      color: Colors.white, size: 20),
+                  child: const Icon(Icons.add, color: Colors.white, size: 20),
                 ),
               ),
             );
@@ -1039,9 +1129,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
             padding: const EdgeInsets.only(right: 4),
             child: GestureDetector(
               onTap: () {
-                ref
-                    .read(capturaNotifierProvider.notifier)
-                    .navigateTo(i);
+                ref.read(capturaNotifierProvider.notifier).navigateTo(i);
                 _transformController.value = Matrix4.identity();
               },
               onLongPress: () => _confirmDeletePhoto(i),
@@ -1051,23 +1139,25 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                   Container(
                     width: 48,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       border: isActive
                           ? Border.all(color: AppColors.green, width: 2)
-                          : Border.all(
-                              color: Colors.grey.shade500, width: 1),
+                          : Border.all(color: Colors.grey.shade500, width: 1),
                     ),
                     child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(isActive ? 2 : 3),
-                      child: Image.file(state.fotos[i].imageFile,
-                          fit: BoxFit.cover),
+                      borderRadius: BorderRadius.circular(isActive ? 2 : 3),
+                      child: Image.file(
+                        state.fotos[i].imageFile,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   Container(
                     margin: const EdgeInsets.all(2),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 3, vertical: 1),
+                      horizontal: 3,
+                      vertical: 1,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(3),
@@ -1095,21 +1185,21 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
 
 class _HeaderCard extends StatelessWidget {
   final DofItemModel dofItem;
-  final int totalCount;
   final bool isOver;
+  final double volumeTotalM3;
 
   const _HeaderCard({
     required this.dofItem,
-    required this.totalCount,
     required this.isOver,
+    this.volumeTotalM3 = 0.0,
   });
 
   @override
   Widget build(BuildContext context) {
+    final showVolume = volumeTotalM3 > 0.0;
     return Container(
       color: Colors.white,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           Expanded(
@@ -1120,15 +1210,16 @@ class _HeaderCard extends StatelessWidget {
                 Text(
                   dofItem.produto,
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${dofItem.especieCientifico} (${dofItem.nomePopular})',
-                  style: TextStyle(
-                      fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1144,19 +1235,21 @@ class _HeaderCard extends StatelessWidget {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Contagem',
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey.shade600)),
-              Text(
-                '$totalCount',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: isOver
-                      ? Colors.red.shade700
-                      : AppColors.green,
+              if (showVolume) ...[
+                Text(
+                  'Volume',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                 ),
-              ),
+                Text(
+                  '${volumeTotalM3.toStringAsFixed(3)} m³',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isOver ? Colors.red.shade700 : AppColors.green,
+                  ),
+                ),
+              ] else
+                Text(''),
             ],
           ),
         ],
@@ -1175,10 +1268,7 @@ class _RegionSelectorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final allRegions = [
-      ...savedRegions,
-      if (draggingRegion != null) draggingRegion!,
-    ];
+    final allRegions = [...savedRegions, ?draggingRegion];
 
     for (int i = 0; i < allRegions.length; i++) {
       final region = allRegions[i];
@@ -1209,9 +1299,10 @@ class _RegionSelectorPainter extends CustomPainter {
       ]) {
         canvas.drawRect(
           Rect.fromCenter(
-              center: corner,
-              width: handleSize,
-              height: handleSize),
+            center: corner,
+            width: handleSize,
+            height: handleSize,
+          ),
           handlePaint,
         );
       }

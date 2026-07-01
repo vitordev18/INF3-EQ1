@@ -338,6 +338,20 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     );
   }
 
+  /// Remove a foto e limpa as medições associadas do banco, reindexando as demais.
+  Future<void> removePhotoAndCleanup(
+    int index,
+    String dofItemId,
+    FiscalizacaoLocalDatasource datasource,
+  ) async {
+    if (index < 0 || index >= state.fotos.length) return;
+    // Remove do banco: medições da foto removida + reindexar restantes
+    await datasource.deleteMedicoesDaFoto(dofItemId, index);
+    await datasource.reindexMedicoesAposRemocao(dofItemId, index);
+    // Atualiza estado em memória
+    removePhoto(index);
+  }
+
   void clearAll() {
     final wasReady = state.modelReady;
     state = CapturaState(modelReady: wasReady);
@@ -475,26 +489,24 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
       }
 
       final totalCount = state.totalCount;
-      final status = totalCount <= dofItem.saldoTotal
-          ? StatusFiscalizacao.concluido
-          : StatusFiscalizacao.excedente;
 
+      // Persiste caminhos e detecções antes de recalcular volume/status
       final existing = await datasource.getByDofItemId(dofItem.id);
-
       final registro = FiscalizacaoRegistroModel(
         id: existing?.id ?? const Uuid().v4(),
         dofItemId: dofItem.id,
         contagemTotal: totalCount,
         fotoPaths: savedPaths,
         dataCaptura: DateTime.now(),
-        status: status,
+        status: existing?.status ?? StatusFiscalizacao.emAndamento,
         detecoesPorFoto: detecoesPorFoto,
+        volumeTotalM3: existing?.volumeTotalM3 ?? 0.0,
       );
-      if (existing != null) {
-        registro.isarId = existing.isarId;
-      }
-
+      if (existing != null) registro.isarId = existing.isarId;
       await datasource.saveRegistro(registro);
+
+      // Recalcula volume e status com base nas medições
+      await datasource.recalcularEPersistirVolume(dofItem, totalCount);
       state = state.copyWith(isProcessing: false);
     } catch (e) {
       debugPrint('[Captura] Erro ao salvar: $e');

@@ -53,6 +53,11 @@ const FiscalizacaoRegistroModelSchema = CollectionSchema(
       name: r'status',
       type: IsarType.byte,
       enumMap: _FiscalizacaoRegistroModelstatusEnumValueMap,
+    ),
+    r'volumeTotalM3': PropertySchema(
+      id: 7,
+      name: r'volumeTotalM3',
+      type: IsarType.double,
     )
   },
   estimateSize: _fiscalizacaoRegistroModelEstimateSize,
@@ -107,6 +112,7 @@ void _fiscalizacaoRegistroModelSerialize(
   writer.writeStringList(offsets[4], object.fotoPaths);
   writer.writeString(offsets[5], object.id);
   writer.writeByte(offsets[6], object.status.index);
+  writer.writeDouble(offsets[7], object.volumeTotalM3);
 }
 
 FiscalizacaoRegistroModel _fiscalizacaoRegistroModelDeserialize(
@@ -125,6 +131,7 @@ FiscalizacaoRegistroModel _fiscalizacaoRegistroModelDeserialize(
     status: _FiscalizacaoRegistroModelstatusValueEnumMap[
             reader.readByteOrNull(offsets[6])] ??
         StatusFiscalizacao.pendente,
+    volumeTotalM3: reader.readDoubleOrNull(offsets[7]) ?? 0.0,
   );
   object.isarId = id;
   return object;
@@ -153,6 +160,8 @@ P _fiscalizacaoRegistroModelDeserializeProp<P>(
       return (_FiscalizacaoRegistroModelstatusValueEnumMap[
               reader.readByteOrNull(offset)] ??
           StatusFiscalizacao.pendente) as P;
+    case 7:
+      return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -1223,6 +1232,72 @@ extension FiscalizacaoRegistroModelQueryFilter on QueryBuilder<
       ));
     });
   }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> volumeTotalM3EqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'volumeTotalM3',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> volumeTotalM3GreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'volumeTotalM3',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> volumeTotalM3LessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'volumeTotalM3',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> volumeTotalM3Between(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'volumeTotalM3',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
 }
 
 extension FiscalizacaoRegistroModelQueryObject on QueryBuilder<
@@ -1300,6 +1375,20 @@ extension FiscalizacaoRegistroModelQuerySortBy on QueryBuilder<
       QAfterSortBy> sortByStatusDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'status', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterSortBy> sortByVolumeTotalM3() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'volumeTotalM3', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterSortBy> sortByVolumeTotalM3Desc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'volumeTotalM3', Sort.desc);
     });
   }
 }
@@ -1389,6 +1478,20 @@ extension FiscalizacaoRegistroModelQuerySortThenBy on QueryBuilder<
       return query.addSortBy(r'status', Sort.desc);
     });
   }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterSortBy> thenByVolumeTotalM3() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'volumeTotalM3', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterSortBy> thenByVolumeTotalM3Desc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'volumeTotalM3', Sort.desc);
+    });
+  }
 }
 
 extension FiscalizacaoRegistroModelQueryWhereDistinct on QueryBuilder<
@@ -1439,6 +1542,13 @@ extension FiscalizacaoRegistroModelQueryWhereDistinct on QueryBuilder<
       distinctByStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'status');
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel, QDistinct>
+      distinctByVolumeTotalM3() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'volumeTotalM3');
     });
   }
 }
@@ -1498,6 +1608,13 @@ extension FiscalizacaoRegistroModelQueryProperty on QueryBuilder<
       statusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'status');
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, double, QQueryOperations>
+      volumeTotalM3Property() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'volumeTotalM3');
     });
   }
 }
