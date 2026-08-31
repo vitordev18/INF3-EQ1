@@ -86,6 +86,7 @@ class CapturaState {
   final bool isEditMode;
   final bool isRegionMode;
   final Rect? draggingRegion;
+  final bool isDirty;
 
   const CapturaState({
     this.fotos = const [],
@@ -96,6 +97,7 @@ class CapturaState {
     this.isEditMode = false,
     this.isRegionMode = false,
     this.draggingRegion,
+    this.isDirty = false,
   });
 
   int get totalCount => fotos.fold(0, (s, f) => s + f.count);
@@ -113,6 +115,7 @@ class CapturaState {
     bool? isRegionMode,
     // Use a nullable getter pattern to allow explicit null assignment
     Object? draggingRegion = _sentinel,
+    bool? isDirty,
   }) =>
       CapturaState(
         fotos: fotos ?? this.fotos,
@@ -125,6 +128,7 @@ class CapturaState {
         draggingRegion: draggingRegion == _sentinel
             ? this.draggingRegion
             : draggingRegion as Rect?,
+        isDirty: isDirty ?? this.isDirty,
       );
 }
 
@@ -194,6 +198,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         isEditMode: false,
         isRegionMode: false,
         draggingRegion: null,
+        isDirty: true,
       );
     } catch (e) {
       debugPrint('[Captura] Erro ao processar foto: $e');
@@ -245,7 +250,11 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         undoStack: [],
         decodedImage: decoded,
       );
-      state = state.copyWith(fotos: newFotos, isProcessing: false);
+      state = state.copyWith(
+        fotos: newFotos,
+        isProcessing: false,
+        isDirty: true,
+      );
     } catch (e) {
       debugPrint('[Captura] Erro ao processar: $e');
       state = state.copyWith(isProcessing: false);
@@ -259,7 +268,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     final newFotos = [...state.fotos];
     newFotos[idx] =
         session.copyWith(savedRegions: [...session.savedRegions, region]);
-    state = state.copyWith(fotos: newFotos);
+    state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
   void removeSavedRegion(int regionIndex) {
@@ -277,7 +286,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     final newFotos = [...state.fotos];
     newFotos[idx] =
         session.copyWith(savedRegions: newRegions, detections: newDetections);
-    state = state.copyWith(fotos: newFotos);
+    state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
   void setDraggingRegion(Rect? region) {
@@ -302,6 +311,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
       currentIndex: newIndex,
       isEditMode: false,
       isRegionMode: false,
+      isDirty: true,
     );
   }
 
@@ -360,7 +370,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     }
     final newFotos = [...state.fotos];
     newFotos[idx] = session.copyWith(detections: newDets, undoStack: newStack);
-    state = state.copyWith(fotos: newFotos);
+    state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
   void addManualDetection(int fotoIndex, Rect normalizedLocation) {
@@ -374,7 +384,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     final newFotos = [...state.fotos];
     newFotos[fotoIndex] =
         session.copyWith(detections: newDets, undoStack: newStack);
-    state = state.copyWith(fotos: newFotos);
+    state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
   void removeDetection(int fotoIndex, int detectionIndex) {
@@ -393,7 +403,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     final newFotos = [...state.fotos];
     newFotos[fotoIndex] =
         session.copyWith(detections: newDets, undoStack: newStack);
-    state = state.copyWith(fotos: newFotos);
+    state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
   void moveDetectionCommit(
@@ -412,7 +422,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     final newFotos = [...state.fotos];
     newFotos[fotoIndex] =
         session.copyWith(detections: newDets, undoStack: newStack);
-    state = state.copyWith(fotos: newFotos);
+    state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
   Size averageDetectionSize() {
@@ -474,7 +484,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
 
       // Recalcula volume e status com base nas medições
       await datasource.recalcularEPersistirVolume(dofItem, totalCount);
-      state = state.copyWith(isProcessing: false);
+      state = state.copyWith(isProcessing: false, isDirty: false);
     } catch (e) {
       debugPrint('[Captura] Erro ao salvar: $e');
       state = state.copyWith(isProcessing: false);
@@ -515,6 +525,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         isProcessing: false,
         isEditMode: false,
         isRegionMode: false,
+        isDirty: false,
       );
     } catch (e) {
       debugPrint('[Captura] Erro ao carregar registro existente: $e');

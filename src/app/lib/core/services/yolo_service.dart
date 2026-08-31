@@ -71,7 +71,7 @@ class YoloService {
 
   Future<void> init() async {
     _interpreter = await Interpreter.fromAsset(
-      'assets/models/yolo_madeira2.tflite',
+      'assets/models/yolo_madeira.tflite',
     );
 
     final labelsData = await rootBundle.loadString('assets/models/labels.txt');

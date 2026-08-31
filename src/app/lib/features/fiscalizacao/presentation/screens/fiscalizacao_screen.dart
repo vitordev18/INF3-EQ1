@@ -1,6 +1,7 @@
 import 'package:app/core/theme/app_colors.dart';
+import 'package:app/core/widgets/app_scaffold.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/dof/presentation/screens/upload_dof_screen.dart';
+import 'package:app/features/dof/presentation/providers/dof_providers.dart';
 import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
 import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
 import 'package:flutter/material.dart';
@@ -54,7 +55,7 @@ class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
   Widget build(BuildContext context) {
     final produtosLidos = ref.watch(parsedDofItemsProvider);
 
-    return Scaffold(
+    return AppScaffold(
       backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
         backgroundColor: AppColors.green,
