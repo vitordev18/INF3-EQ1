@@ -57,7 +57,7 @@ The project was developed as a **capstone (TCC)** by a team, applying mobile dev
 ```bash
 # Clone the repository
 git clone https://github.com/vitordev18/INF3-EQ1.git
-cd INF3-EQ1
+cd INF3-EQ1/src/app
 
 # Install dependencies
 flutter pub get
