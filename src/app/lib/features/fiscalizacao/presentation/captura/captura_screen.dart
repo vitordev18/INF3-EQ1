@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math' show min, max;
+import 'dart:math' show min;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +12,7 @@ import 'package:app/core/services/yolo_service.dart';
 import 'package:app/core/utils/dialogs.dart';
 import 'package:app/core/widgets/app_scaffold.dart';
 import 'package:app/core/widgets/box_painter.dart';
+import 'package:app/core/widgets/upload_area.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
 
@@ -24,6 +25,41 @@ class CapturaScreen extends ConsumerStatefulWidget {
   ConsumerState<CapturaScreen> createState() => _CapturaScreenState();
 }
 
+/// Which part of a saved region a resize gesture grabbed.
+enum _RegionHandle {
+  topLeft,
+  topRight,
+  bottomLeft,
+  bottomRight,
+  top,
+  bottom,
+  left,
+  right,
+}
+
+/// What the current region-mode pan gesture is doing.
+enum _RegionDragKind { creating, resizing, moving }
+
+/// Smallest allowed region width/height (fraction of image size), used both
+/// to discard accidental taps when creating a region and to stop a
+/// resize/move gesture from collapsing or inverting a region.
+const double _kMinRegionSize = 0.02;
+
+/// Touch tolerance (in widget pixels) for grabbing a corner/edge handle.
+const double _kRegionHandleTouchRadius = 18.0;
+
+/// Diameter of the trash-can drop target shown while an existing region is
+/// being dragged (moved), and how far its center sits above the bottom edge
+/// of the image. Kept as widget-pixel constants (not fractions) since the
+/// icon has a fixed visual size regardless of image/zoom.
+const double _kTrashIconDiameter = 56.0;
+const double _kTrashIconBottomMargin = 24.0;
+
+/// How close the finger must be to the trash icon's center for a
+/// drag-to-delete drop to count. Deliberately more generous than the visual
+/// icon radius so it's easy to hit without precise aim.
+const double _kTrashHitRadius = 42.0;
+
 class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   final _transformController = TransformationController();
   final _picker = ImagePicker();
@@ -35,6 +71,33 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   bool _significantDrag = false;
   Size? _currentWidgetSize;
   bool _hasExistingSession = false;
+
+  // Region resize/move drag state (kept local, same reasoning as above).
+  _RegionDragKind? _regionDragKind;
+  // "creating": fixed anchor point the rect is drawn from.
+  // "moving": pointer position at gesture start (used to compute a delta).
+  // "resizing": unused (the fixed reference is the opposite corner/edge of
+  // _regionOriginalRect, derived from _regionActiveHandle instead).
+  Offset? _regionStartPoint;
+  Rect? _regionOriginalRect; // rect snapshot at gesture start, fraction space
+  _RegionHandle? _regionActiveHandle; // grabbed handle, only for "resizing"
+
+  // True while a "moving" drag's current finger position is hovering over
+  // the trash-can drop target. Only meaningful while
+  // _regionDragKind == _RegionDragKind.moving; drives both the trash icon's
+  // highlighted look and whether releasing deletes the region instead of
+  // committing the move.
+  bool _overTrashZone = false;
+
+  // How many fingers are currently touching the photo. Tracked via raw
+  // Listener callbacks (see _onPointerDown/_onPointerMove/_onPointerUp
+  // below) instead of GestureDetector's onPan* callbacks, because a
+  // PanGestureRecognizer living inside the same widget tree as
+  // InteractiveViewer's internal scale recognizer competes for the gesture
+  // arena and unpredictably blocks two-finger pinch-to-zoom. Raw Listener
+  // events never enter the arena, so they can never interfere with
+  // InteractiveViewer's own pinch/pan handling.
+  int _activePointerCount = 0;
 
   @override
   void initState() {
@@ -97,6 +160,73 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       final dx = localPosition.dx - cx;
       final dy = localPosition.dy - cy;
       if (dx * dx + dy * dy <= hitR * hitR) return i;
+    }
+    return null;
+  }
+
+  /// Returns the handle of [rectPx] (already in widget-pixel space) that is
+  /// within [tolerance] pixels of [point], or null if none is close enough.
+  _RegionHandle? _handleNear(Rect rectPx, Offset point, double tolerance) {
+    final candidates = <_RegionHandle, Offset>{
+      _RegionHandle.topLeft: Offset(rectPx.left, rectPx.top),
+      _RegionHandle.topRight: Offset(rectPx.right, rectPx.top),
+      _RegionHandle.bottomLeft: Offset(rectPx.left, rectPx.bottom),
+      _RegionHandle.bottomRight: Offset(rectPx.right, rectPx.bottom),
+      _RegionHandle.top: Offset(rectPx.center.dx, rectPx.top),
+      _RegionHandle.bottom: Offset(rectPx.center.dx, rectPx.bottom),
+      _RegionHandle.left: Offset(rectPx.left, rectPx.center.dy),
+      _RegionHandle.right: Offset(rectPx.right, rectPx.center.dy),
+    };
+    _RegionHandle? best;
+    double bestDistSq = tolerance * tolerance;
+    for (final entry in candidates.entries) {
+      final distSq = (entry.value - point).distanceSquared;
+      if (distSq <= bestDistSq) {
+        bestDistSq = distSq;
+        best = entry.key;
+      }
+    }
+    return best;
+  }
+
+  /// Hit-tests the 8 handles of every saved region (topmost/last-added first)
+  /// against [localPosition]. Returns the region index and grabbed handle,
+  /// or null if the touch wasn't close enough to any handle.
+  ({int index, _RegionHandle handle})? _hitTestRegionHandle(
+    Offset localPosition,
+    List<Rect> savedRegions,
+    Size widgetSize,
+  ) {
+    for (int i = savedRegions.length - 1; i >= 0; i--) {
+      final r = savedRegions[i];
+      final rectPx = Rect.fromLTRB(
+        r.left * widgetSize.width,
+        r.top * widgetSize.height,
+        r.right * widgetSize.width,
+        r.bottom * widgetSize.height,
+      );
+      final handle = _handleNear(
+        rectPx,
+        localPosition,
+        _kRegionHandleTouchRadius,
+      );
+      if (handle != null) return (index: i, handle: handle);
+    }
+    return null;
+  }
+
+  /// Hit-tests the interior of every saved region (topmost/last-added first)
+  /// against [localPosition], for the "move whole region" gesture. Assumes
+  /// handles were already checked (and missed) by the caller.
+  int? _hitTestRegionInterior(
+    Offset localPosition,
+    List<Rect> savedRegions,
+    Size widgetSize,
+  ) {
+    final fx = localPosition.dx / widgetSize.width;
+    final fy = localPosition.dy / widgetSize.height;
+    for (int i = savedRegions.length - 1; i >= 0; i--) {
+      if (savedRegions[i].contains(Offset(fx, fy))) return i;
     }
     return null;
   }
@@ -244,7 +374,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   void _handlePanStart(
-    DragStartDetails details,
+    Offset localPosition,
     BoxConstraints constraints,
     CapturaState state,
   ) {
@@ -252,16 +382,67 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     final session = state.current!;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
-      notifier.setDraggingRegion(
-        Rect.fromLTWH(
-          details.localPosition.dx / constraints.maxWidth,
-          details.localPosition.dy / constraints.maxHeight,
-          0,
-          0,
-        ),
+      final widgetSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+      // 1) Did we grab a handle of an already-saved region? -> resize.
+      final handleHit = _hitTestRegionHandle(
+        localPosition,
+        session.savedRegions,
+        widgetSize,
       );
+      if (handleHit != null) {
+        final original = notifier.beginEditRegion(handleHit.index);
+        if (original != null) {
+          setState(() {
+            _regionDragKind = _RegionDragKind.resizing;
+            _regionOriginalRect = original;
+            _regionActiveHandle = handleHit.handle;
+            _regionStartPoint = null;
+          });
+        }
+        return;
+      }
+
+      // 2) Did we tap inside an already-saved region (not on a handle)?
+      //    -> move the whole region.
+      final interiorHit = _hitTestRegionInterior(
+        localPosition,
+        session.savedRegions,
+        widgetSize,
+      );
+      if (interiorHit != null) {
+        final original = notifier.beginEditRegion(interiorHit);
+        if (original != null) {
+          setState(() {
+            _regionDragKind = _RegionDragKind.moving;
+            _regionOriginalRect = original;
+            _regionActiveHandle = null;
+            _regionStartPoint = Offset(
+              localPosition.dx / constraints.maxWidth,
+              localPosition.dy / constraints.maxHeight,
+            );
+          });
+        }
+        return;
+      }
+
+      // 3) Otherwise, start drawing a brand-new region anchored at the
+      //    touch point (the anchor is fixed for the whole gesture, unlike
+      //    the previous implementation which re-derived it from the
+      //    previous frame's already-expanded rect).
+      final anchor = Offset(
+        localPosition.dx / constraints.maxWidth,
+        localPosition.dy / constraints.maxHeight,
+      );
+      setState(() {
+        _regionDragKind = _RegionDragKind.creating;
+        _regionStartPoint = anchor;
+        _regionOriginalRect = null;
+        _regionActiveHandle = null;
+      });
+      notifier.setDraggingRegion(Rect.fromLTWH(anchor.dx, anchor.dy, 0, 0));
     } else if (state.isEditMode) {
-      final hitIdx = _hitTestCircle(details.localPosition, extraPadding: 5);
+      final hitIdx = _hitTestCircle(localPosition, extraPadding: 5);
       if (hitIdx != null) {
         setState(() {
           _draggingCircleIndex = hitIdx;
@@ -276,7 +457,8 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   void _handlePanUpdate(
-    DragUpdateDetails details,
+    Offset localPosition,
+    Offset delta,
     BoxConstraints constraints,
     CapturaState state,
   ) {
@@ -284,21 +466,42 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     final session = state.current!;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
-      final dr = state.draggingRegion;
-      if (dr == null) return;
-      final nx = details.localPosition.dx / constraints.maxWidth;
-      final ny = details.localPosition.dy / constraints.maxHeight;
-      notifier.setDraggingRegion(
-        Rect.fromLTRB(
-          min(dr.left, nx).clamp(0.0, 1.0),
-          min(dr.top, ny).clamp(0.0, 1.0),
-          max(dr.right, nx).clamp(0.0, 1.0),
-          max(dr.bottom, ny).clamp(0.0, 1.0),
-        ),
+      // Current pointer position, fraction space, clamped to the image
+      // bounds. Every branch below computes the new rect from a FIXED
+      // reference (an anchor point or the original rect snapshot) plus
+      // this current position — never by folding the previous frame's
+      // already-updated rect, which is what made the old implementation
+      // only ever grow (dragging back past a point wouldn't shrink it).
+      final cur = Offset(
+        (localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0),
+        (localPosition.dy / constraints.maxHeight).clamp(0.0, 1.0),
       );
+      final kind = _regionDragKind;
+      if (kind == _RegionDragKind.creating) {
+        final anchor = _regionStartPoint;
+        if (anchor == null) return;
+        notifier.setDraggingRegion(Rect.fromPoints(anchor, cur));
+      } else if (kind == _RegionDragKind.resizing) {
+        final original = _regionOriginalRect;
+        final handle = _regionActiveHandle;
+        if (original == null || handle == null) return;
+        notifier.setDraggingRegion(_resizedRect(original, handle, cur));
+      } else if (kind == _RegionDragKind.moving) {
+        final original = _regionOriginalRect;
+        final start = _regionStartPoint;
+        if (original == null || start == null) return;
+        notifier.setDraggingRegion(_movedRect(original, cur - start));
+        final overTrash = _isOverTrash(
+          localPosition,
+          Size(constraints.maxWidth, constraints.maxHeight),
+        );
+        if (overTrash != _overTrashZone) {
+          setState(() => _overTrashZone = overTrash);
+        }
+      }
     } else if (state.isEditMode && _draggingCircleIndex != null) {
-      final dx = details.delta.dx / constraints.maxWidth;
-      final dy = details.delta.dy / constraints.maxHeight;
+      final dx = delta.dx / constraints.maxWidth;
+      final dy = delta.dy / constraints.maxHeight;
       setState(() {
         _draggingCenterOverride = Offset(
           (_draggingCenterOverride!.dx + dx).clamp(0.0, 1.0),
@@ -309,16 +512,102 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     }
   }
 
-  void _handlePanEnd(DragEndDetails details, CapturaState state) {
+  /// Recomputes [original] after dragging [handle] to [cur] (fraction
+  /// space). The side(s) the handle owns move to [cur]; every other side
+  /// stays exactly at its original position (the "fixed anchor"). Each
+  /// moving side is clamped against its *original* opposite side so the
+  /// rect can never invert or shrink below [_kMinRegionSize] while
+  /// dragging.
+  Rect _resizedRect(Rect original, _RegionHandle handle, Offset cur) {
+    double left = original.left;
+    double top = original.top;
+    double right = original.right;
+    double bottom = original.bottom;
+
+    final movesLeft = handle == _RegionHandle.topLeft ||
+        handle == _RegionHandle.bottomLeft ||
+        handle == _RegionHandle.left;
+    final movesRight = handle == _RegionHandle.topRight ||
+        handle == _RegionHandle.bottomRight ||
+        handle == _RegionHandle.right;
+    final movesTop = handle == _RegionHandle.topLeft ||
+        handle == _RegionHandle.topRight ||
+        handle == _RegionHandle.top;
+    final movesBottom = handle == _RegionHandle.bottomLeft ||
+        handle == _RegionHandle.bottomRight ||
+        handle == _RegionHandle.bottom;
+
+    if (movesLeft) left = cur.dx.clamp(0.0, original.right - _kMinRegionSize);
+    if (movesRight) {
+      right = cur.dx.clamp(original.left + _kMinRegionSize, 1.0);
+    }
+    if (movesTop) top = cur.dy.clamp(0.0, original.bottom - _kMinRegionSize);
+    if (movesBottom) {
+      bottom = cur.dy.clamp(original.top + _kMinRegionSize, 1.0);
+    }
+
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  /// Translates [original] by [delta] (fraction space), clamped so the
+  /// moved rect stays fully within the 0..1 image bounds without changing
+  /// its size.
+  Rect _movedRect(Rect original, Offset delta) {
+    final clampedDx = delta.dx.clamp(-original.left, 1.0 - original.right);
+    final clampedDy = delta.dy.clamp(-original.top, 1.0 - original.bottom);
+    return Rect.fromLTWH(
+      original.left + clampedDx,
+      original.top + clampedDy,
+      original.width,
+      original.height,
+    );
+  }
+
+  /// Whether [localPosition] (widget-pixel space) is close enough to the
+  /// trash-can drop target's center to count as "dropped on the trash".
+  bool _isOverTrash(Offset localPosition, Size widgetSize) {
+    final trashCenter = Offset(
+      widgetSize.width / 2,
+      widgetSize.height - _kTrashIconBottomMargin - _kTrashIconDiameter / 2,
+    );
+    return (localPosition - trashCenter).distance <= _kTrashHitRadius;
+  }
+
+  void _handlePanEnd(CapturaState state) {
     final notifier = ref.read(capturaNotifierProvider.notifier);
     final session = state.current!;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
       final dr = state.draggingRegion;
-      if (dr != null && dr.width > 0.02 && dr.height > 0.02) {
-        notifier.addSavedRegion(dr);
+      final kind = _regionDragKind;
+      if (kind == _RegionDragKind.moving && _overTrashZone && dr != null) {
+        // Released on the trash target while moving an already-saved
+        // region: discard it (and any detections inside it) instead of
+        // committing the move.
+        notifier.discardDraggedRegion(dr);
+      } else {
+        // Resizing/moving always commit the (already saved) region back —
+        // its size was clamped to _kMinRegionSize throughout the drag, so
+        // it can never end up "too small". Creating a brand new region
+        // still discards accidental taps/micro-drags, same as before.
+        final shouldCommit = dr != null &&
+            (kind == _RegionDragKind.resizing ||
+                kind == _RegionDragKind.moving ||
+                (kind == _RegionDragKind.creating &&
+                    dr.width > _kMinRegionSize &&
+                    dr.height > _kMinRegionSize));
+        if (shouldCommit) {
+          notifier.addSavedRegion(dr);
+        }
+        notifier.setDraggingRegion(null);
       }
-      notifier.setDraggingRegion(null);
+      setState(() {
+        _regionDragKind = null;
+        _regionStartPoint = null;
+        _regionOriginalRect = null;
+        _regionActiveHandle = null;
+        _overTrashZone = false;
+      });
     } else if (state.isEditMode &&
         _draggingCircleIndex != null &&
         _significantDrag) {
@@ -344,6 +633,117 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
         _significantDrag = false;
       });
     }
+  }
+
+  /// Handles the gesture being interrupted before onPanEnd fires (e.g. the
+  /// OS steals the pointer for an edge-swipe). If we had picked up an
+  /// existing region to resize/move it, put it back exactly as it was —
+  /// silently losing an already-saved region because the gesture got
+  /// cancelled would be far worse than just ignoring the interrupted edit.
+  void _handlePanCancel(CapturaState state) {
+    final notifier = ref.read(capturaNotifierProvider.notifier);
+    final session = state.current;
+    if (session == null) return;
+    final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
+    if (inRegionMode) {
+      final original = _regionOriginalRect;
+      final kind = _regionDragKind;
+      if ((kind == _RegionDragKind.resizing ||
+              kind == _RegionDragKind.moving) &&
+          original != null) {
+        notifier.addSavedRegion(original);
+      }
+      notifier.setDraggingRegion(null);
+      setState(() {
+        _regionDragKind = null;
+        _regionStartPoint = null;
+        _regionOriginalRect = null;
+        _regionActiveHandle = null;
+        _overTrashZone = false;
+      });
+    } else if (state.isEditMode) {
+      setState(() {
+        _draggingCircleIndex = null;
+        _draggingOriginalDetection = null;
+        _draggingCenterOverride = null;
+        _significantDrag = false;
+      });
+    }
+  }
+
+  // --- Raw pointer routing (region/edit drag vs. pinch-to-zoom) ---
+  //
+  // These wrap _handlePanStart/_handlePanUpdate/_handlePanEnd/_handlePanCancel
+  // (which contain all the actual drag/resize/move logic, unchanged) and are
+  // wired to a Listener instead of GestureDetector's onPan* callbacks. See
+  // the comment on _activePointerCount for why.
+
+  void _onPointerDown(
+    PointerDownEvent event,
+    BoxConstraints constraints,
+    CapturaState state,
+  ) {
+    _activePointerCount++;
+    if (_activePointerCount == 1) {
+      final session = state.current;
+      if (session == null) return;
+      final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
+      if (inRegionMode || state.isEditMode) {
+        _handlePanStart(event.localPosition, constraints, state);
+      }
+    } else {
+      // A second finger just joined: this is now a pinch-to-zoom gesture,
+      // not a single-finger drag. Cancel whatever single-finger
+      // resize/move/detection-drag was in progress (restoring it exactly
+      // as it was, same as an OS-interrupted gesture) so InteractiveViewer's
+      // own scale recognizer is free to handle both fingers.
+      _handlePanCancel(state);
+    }
+  }
+
+  void _onPointerMove(
+    PointerMoveEvent event,
+    BoxConstraints constraints,
+    CapturaState state,
+  ) {
+    // Only drive our own drag logic while exactly one finger is down. With
+    // 0 fingers there's nothing to update; with 2+ fingers this is a pinch
+    // and _onPointerDown already cancelled any single-finger drag above.
+    if (_activePointerCount != 1) return;
+    final session = state.current;
+    if (session == null) return;
+    final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
+    if (inRegionMode || state.isEditMode) {
+      // Use localDelta (not delta): delta is in raw device/global pixels,
+      // while localDelta is transformed into this widget's local coordinate
+      // space — the same space localPosition and constraints.maxWidth/
+      // maxHeight are already in. Without this, dragging a region handle or
+      // detection circle would move too fast/slow whenever the photo is
+      // zoomed in via InteractiveViewer's pinch-to-zoom.
+      _handlePanUpdate(
+        event.localPosition,
+        event.localDelta,
+        constraints,
+        state,
+      );
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event, CapturaState state) {
+    if (_activePointerCount > 0) _activePointerCount--;
+    // Only commit when the last finger of the sequence lifted. If this was
+    // one finger lifting out of a multi-touch pinch, the drag was already
+    // cancelled (not started) when the 2nd finger touched down, so there's
+    // nothing to commit — and the remaining finger(s) shouldn't suddenly
+    // resume a drag either (_handlePanUpdate is a no-op with no drag state).
+    if (_activePointerCount == 0) {
+      _handlePanEnd(state);
+    }
+  }
+
+  void _onPointerCancel(PointerCancelEvent event, CapturaState state) {
+    if (_activePointerCount > 0) _activePointerCount--;
+    _handlePanCancel(state);
   }
 
   void _handleEditTap(Offset localPosition, CapturaState state) {
@@ -389,44 +789,23 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       child: AppScaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
-          backgroundColor: AppColors.green,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.black),
-            onPressed: _handleBackPress,
-          ),
-          title: Text(
-            widget.dofItem.produto,
-            style: const TextStyle(
+          centerTitle: true,
+          title: const Text(
+            'Tela de Captura',
+            style: TextStyle(
               color: AppColors.black,
               fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontSize: 19,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: state.modelError
-                  ? const Icon(Icons.error_outline, color: Colors.red, size: 20)
-                  : !state.modelReady
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: AppColors.black,
-                      ),
-                    )
-                  : Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.black,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-            ),
-          ],
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.chevron_left, color: AppColors.black),
+            onPressed: _handleBackPress,
+            iconSize: 30,
+          ),
         ),
         body: Stack(
           children: [
@@ -441,25 +820,14 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                 // ── Image area ──────────────────────────────────────────────
                 Expanded(
                   child: session == null
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_search_outlined,
-                                size: 64,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Selecione uma imagem para começar',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                      ? Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Center(
+                            child: UploadArea(
+                              onTap: _showImageSourceSheet,
+                              title: 'Selecione uma imagem para começar',
+                              subtitle: 'Câmera',
+                            ),
                           ),
                         )
                       : Padding(
@@ -515,35 +883,30 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                         boundaryMargin: EdgeInsets.zero,
                                         child: AspectRatio(
                                           aspectRatio: aspectRatio,
-                                          child: GestureDetector(
+                                          child: Listener(
+                                            behavior: HitTestBehavior.opaque,
+                                            onPointerDown: (e) =>
+                                                _onPointerDown(
+                                                  e,
+                                                  constraints,
+                                                  state,
+                                                ),
+                                            onPointerMove: (e) =>
+                                                _onPointerMove(
+                                                  e,
+                                                  constraints,
+                                                  state,
+                                                ),
+                                            onPointerUp: (e) =>
+                                                _onPointerUp(e, state),
+                                            onPointerCancel: (e) =>
+                                                _onPointerCancel(e, state),
+                                            child: GestureDetector(
                                             onTapUp: state.isEditMode
                                                 ? (d) => _handleEditTap(
                                                     d.localPosition,
                                                     state,
                                                   )
-                                                : null,
-                                            onPanStart:
-                                                (inRegionMode ||
-                                                    state.isEditMode)
-                                                ? (d) => _handlePanStart(
-                                                    d,
-                                                    constraints,
-                                                    state,
-                                                  )
-                                                : null,
-                                            onPanUpdate:
-                                                (inRegionMode ||
-                                                    state.isEditMode)
-                                                ? (d) => _handlePanUpdate(
-                                                    d,
-                                                    constraints,
-                                                    state,
-                                                  )
-                                                : null,
-                                            onPanEnd:
-                                                (inRegionMode ||
-                                                    state.isEditMode)
-                                                ? (d) => _handlePanEnd(d, state)
                                                 : null,
                                             child: Stack(
                                               fit: StackFit.expand,
@@ -647,69 +1010,87 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                       ),
                                                     ),
                                                   ),
-                                                // X buttons for saved regions
+                                                // Trash drop target: to
+                                                // delete a saved region, the
+                                                // user long-presses/drags it
+                                                // (the existing "move"
+                                                // gesture) down onto this
+                                                // icon, which slides up from
+                                                // the bottom edge only while
+                                                // such a drag is in
+                                                // progress, and highlights
+                                                // once the finger is close
+                                                // enough to it to count as a
+                                                // drop.
                                                 if (inRegionMode)
-                                                  for (
-                                                    int i = 0;
-                                                    i <
-                                                        session
-                                                            .savedRegions
-                                                            .length;
-                                                    i++
-                                                  )
-                                                    Positioned(
-                                                      left:
-                                                          (session.savedRegions[i].right *
-                                                                      constraints
-                                                                          .maxWidth -
-                                                                  16)
-                                                              .clamp(
-                                                                0.0,
-                                                                constraints
-                                                                        .maxWidth -
-                                                                    28,
+                                                  Positioned(
+                                                    bottom: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: IgnorePointer(
+                                                      child: Center(
+                                                        child: AnimatedSlide(
+                                                          duration:
+                                                              const Duration(
+                                                                milliseconds:
+                                                                    220,
                                                               ),
-                                                      top:
-                                                          (session.savedRegions[i].top *
-                                                                      constraints
-                                                                          .maxHeight -
-                                                                  16)
-                                                              .clamp(
-                                                                0.0,
-                                                                constraints
-                                                                        .maxHeight -
-                                                                    28,
-                                                              ),
-                                                      child: GestureDetector(
-                                                        behavior:
-                                                            HitTestBehavior
-                                                                .opaque,
-                                                        onTap: () => ref
-                                                            .read(
-                                                              capturaNotifierProvider
-                                                                  .notifier,
-                                                            )
-                                                            .removeSavedRegion(
-                                                              i,
+                                                          curve:
+                                                              Curves.easeOut,
+                                                          offset:
+                                                              _regionDragKind ==
+                                                                  _RegionDragKind
+                                                                      .moving
+                                                              ? Offset.zero
+                                                              : const Offset(
+                                                                  0,
+                                                                  1.6,
+                                                                ),
+                                                          child: AnimatedContainer(
+                                                            duration:
+                                                                const Duration(
+                                                                  milliseconds:
+                                                                      150,
+                                                                ),
+                                                            margin:
+                                                                const EdgeInsets.only(
+                                                                  bottom: 24,
+                                                                ),
+                                                            width:
+                                                                _overTrashZone
+                                                                ? _kTrashIconDiameter +
+                                                                      8
+                                                                : _kTrashIconDiameter,
+                                                            height:
+                                                                _overTrashZone
+                                                                ? _kTrashIconDiameter +
+                                                                      8
+                                                                : _kTrashIconDiameter,
+                                                            decoration: BoxDecoration(
+                                                              shape: BoxShape
+                                                                  .circle,
+                                                              color:
+                                                                  _overTrashZone
+                                                                  ? Colors
+                                                                        .red
+                                                                        .shade700
+                                                                  : Colors
+                                                                        .black54,
                                                             ),
-                                                        child: Container(
-                                                          width: 20,
-                                                          height: 20,
-                                                          decoration:
-                                                              const BoxDecoration(
-                                                                color:
-                                                                    Colors.red,
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          child: const Icon(
-                                                            Icons.close,
-                                                            size: 12,
-                                                            color: Colors.white,
+                                                            child: Icon(
+                                                              Icons.delete,
+                                                              color: Colors
+                                                                  .white,
+                                                              size:
+                                                                  _overTrashZone
+                                                                  ? 30
+                                                                  : 24,
+                                                            ),
                                                           ),
                                                         ),
                                                       ),
                                                     ),
+                                                  ),
                                                 // Edit mode chip
                                                 if (state.isEditMode)
                                                   Positioned(
@@ -783,6 +1164,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                   ),
                                               ],
                                             ),
+                                          ),
                                           ),
                                         ),
                                       );
@@ -940,27 +1322,62 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                           child: SizedBox(
                             width: double.infinity,
                             height: 48,
-                            child: ElevatedButton.icon(
-                              onPressed: () => ref
-                                  .read(capturaNotifierProvider.notifier)
-                                  .confirmRegionAndProcess(),
-                              icon: const Icon(Icons.check),
-                              label: Text(
-                                session.savedRegions.isEmpty
-                                    ? 'Detectar'
-                                    : 'Detectar ${session.savedRegions.length} Área(s)',
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.green,
-                                foregroundColor: Colors.white,
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                if (state.isRegionMode &&
+                                    !session.awaitingRegionSelection) ...[
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => ref
+                                          .read(capturaNotifierProvider.notifier)
+                                          .cancelRegionMode(),
+                                      style: OutlinedButton.styleFrom(
+                                        side: BorderSide(
+                                          color: Colors.grey.shade400,
+                                          width: 1.5,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        foregroundColor: Colors.grey.shade700,
+                                      ),
+                                      child: const Text(
+                                        'Cancelar',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => ref
+                                        .read(capturaNotifierProvider.notifier)
+                                        .confirmRegionAndProcess(),
+                                    icon: const Icon(Icons.check),
+                                    label: Text(
+                                      session.savedRegions.isEmpty
+                                          ? 'Detectar'
+                                          : 'Salvar ${session.savedRegions.length} Área(s)',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.green,
+                                      foregroundColor: Colors.white,
+                                      textStyle: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
+                              ],
                             ),
                           ),
                         ),
@@ -1047,36 +1464,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                           ),
                         ),
 
-                      // FAB when no photos
-                      if (state.fotos.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 30,
-                            vertical: 30,
-                          ),
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: GestureDetector(
-                              onTap: _showImageSourceSheet,
-                              child: Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: AppColors.green.withValues(
-                                    alpha: 0.85,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.add,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
                       // Save button
                       if (state.fotos.isNotEmpty)
                         Padding(
@@ -1085,7 +1472,10 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                             width: double.infinity,
                             height: 52,
                             child: ElevatedButton.icon(
-                              onPressed: state.isProcessing
+                              onPressed: state.isProcessing ||
+                                      state.isEditMode ||
+                                      state.isRegionMode ||
+                                      (session?.awaitingRegionSelection ?? false)
                                   ? null
                                   : _saveAndPop,
                               icon: const Icon(
@@ -1338,21 +1728,20 @@ class _RegionSelectorPainter extends CustomPainter {
       canvas.drawRect(rect, borderPaint);
 
       final handlePaint = Paint()..color = Colors.white;
-      const handleSize = 8.0;
+      const handleRadius = 5.0;
       for (final corner in [
+        // Corners
         Offset(rect.left, rect.top),
         Offset(rect.right, rect.top),
         Offset(rect.left, rect.bottom),
         Offset(rect.right, rect.bottom),
+        // Edge midpoints
+        Offset(rect.center.dx, rect.top),
+        Offset(rect.center.dx, rect.bottom),
+        Offset(rect.left, rect.center.dy),
+        Offset(rect.right, rect.center.dy),
       ]) {
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: corner,
-            width: handleSize,
-            height: handleSize,
-          ),
-          handlePaint,
-        );
+        canvas.drawCircle(corner, handleRadius, handlePaint);
       }
     }
   }

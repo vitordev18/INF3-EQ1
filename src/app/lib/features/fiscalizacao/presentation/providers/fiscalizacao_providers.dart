@@ -11,7 +11,9 @@ import 'package:app/core/services/yolo_service.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/dof/presentation/providers/dof_providers.dart';
 import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_local_datasource.dart';
+import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_sessao_local_datasource.dart';
 import 'package:app/features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
+import 'package:app/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
 import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
 
 // ─── Edit action sealed class (para undo) ─────────────────────────────────────
@@ -152,6 +154,112 @@ final registroPorItemProvider =
   },
 );
 
+// ─── Sessão de fiscalização (lote por import DOF) ─────────────────────────────
+
+final fiscalizacaoSessaoLocalDatasourceProvider =
+    Provider<FiscalizacaoSessaoLocalDatasource>((ref) {
+  final isarService = ref.watch(isarServiceProvider);
+  return FiscalizacaoSessaoLocalDatasource(isarService);
+});
+
+/// Sessão em andamento (se houver), exibida no banner de aviso do Hub de
+/// Início. Após criar ou encerrar uma sessão, invalide este provider
+/// (`ref.invalidate(sessaoAtivaProvider)`) para refletir a mudança na UI.
+final sessaoAtivaProvider = FutureProvider<FiscalizacaoSessaoModel?>((ref) {
+  final ds = ref.watch(fiscalizacaoSessaoLocalDatasourceProvider);
+  return ds.getSessaoAtiva();
+});
+
+/// Últimas fiscalizações concluídas, para a seção "Últimas Fiscalizações" do
+/// Hub de Início. Invalide (`ref.invalidate(sessoesRecentesProvider)`) após
+/// `encerrarSessao()` para refletir a nova entrada.
+final sessoesRecentesProvider =
+    FutureProvider<List<FiscalizacaoSessaoModel>>((ref) {
+  final ds = ref.watch(fiscalizacaoSessaoLocalDatasourceProvider);
+  return ds.getSessoesRecentes();
+});
+
+/// Itens DOF da sessão ativa — o que a FiscalizacaoHubScreen deve listar.
+///
+/// [parsedDofItemsProvider] (em dof_providers.dart) hidrata com TODOS os
+/// `DofItemModel` persistidos, sem noção de sessão — de propósito, para não
+/// criar uma dependência de dof_providers.dart sobre este arquivo
+/// (fiscalizacao depende de dof, não o contrário). Este provider soma essa
+/// lista com [sessaoAtivaProvider] para filtrar só os itens da fiscalização
+/// em andamento.
+final itensDaSessaoAtivaProvider = Provider<List<DofItemModel>>((ref) {
+  final sessaoAtiva = ref.watch(sessaoAtivaProvider).valueOrNull;
+  if (sessaoAtiva == null) return const [];
+  final todosOsItens = ref.watch(parsedDofItemsProvider);
+  return todosOsItens
+      .where((item) => item.sessaoId == sessaoAtiva.id)
+      .toList();
+});
+
+/// Progresso ao vivo da sessão ativa — (concluídos, total) — para o texto
+/// "X de Y itens concluídos" do banner de aviso do Hub de Início.
+///
+/// Não pode vir dos snapshots de [FiscalizacaoSessaoModel]: esses só são
+/// preenchidos em `encerrarSessao()`, ficando `null` enquanto a sessão está
+/// em andamento (é justamente esse o momento em que o banner aparece). Por
+/// isso este provider recalcula a partir dos registros de cada item — igual
+/// à contagem feita em `encerrarSessao()`, mas sem persistir nada. "Concluído"
+/// aqui conta tanto `concluido` quanto `excedente`: ambos são estados
+/// terminais (o item já foi fotografado e processado), diferindo apenas em
+/// ter ou não excedido o saldo declarado.
+final progressoSessaoAtivaProvider =
+    FutureProvider<(int concluidos, int total)>((ref) async {
+  final itens = ref.watch(itensDaSessaoAtivaProvider);
+  if (itens.isEmpty) return (0, 0);
+  final ds = ref.watch(fiscalizacaoLocalDatasourceProvider);
+  final registros = await Future.wait(
+    itens.map((item) => ds.getByDofItemId(item.id)),
+  );
+  final concluidos = registros
+      .where((r) =>
+          r?.status == StatusFiscalizacao.concluido ||
+          r?.status == StatusFiscalizacao.excedente)
+      .length;
+  return (concluidos, itens.length);
+});
+
+/// Resumo completo da sessão ativa — (total, concluídos, excedentes,
+/// pendentes) — para o card de estatísticas da ConcluirFiscalizacaoScreen.
+///
+/// Usa exatamente a mesma regra de contagem de
+/// [FiscalizacaoSessaoLocalDatasource.encerrarSessao] (`emAndamento`,
+/// `pendente` e "sem registro" contam todos como pendente), para que os
+/// números mostrados antes de concluir batam com o snapshot gravado no
+/// instante em que o usuário efetivamente encerra a sessão.
+final resumoSessaoAtivaProvider = FutureProvider<
+    (int total, int concluidos, int excedentes, int pendentes)>((ref) async {
+  final itens = ref.watch(itensDaSessaoAtivaProvider);
+  if (itens.isEmpty) return (0, 0, 0, 0);
+  final ds = ref.watch(fiscalizacaoLocalDatasourceProvider);
+  final registros = await Future.wait(
+    itens.map((item) => ds.getByDofItemId(item.id)),
+  );
+  var concluidos = 0;
+  var excedentes = 0;
+  var pendentes = 0;
+  for (final r in registros) {
+    switch (r?.status) {
+      case StatusFiscalizacao.concluido:
+        concluidos++;
+        break;
+      case StatusFiscalizacao.excedente:
+        excedentes++;
+        break;
+      case StatusFiscalizacao.emAndamento:
+      case StatusFiscalizacao.pendente:
+      case null:
+        pendentes++;
+        break;
+    }
+  }
+  return (itens.length, concluidos, excedentes, pendentes);
+});
+
 final capturaNotifierProvider =
     AutoDisposeNotifierProvider<CapturaNotifier, CapturaState>(
   CapturaNotifier.new,
@@ -163,9 +271,19 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
   late YoloService _yolo;
   static const int _maxUndoDepth = 20;
 
+  // Snapshot de savedRegions/detections tirado no instante em que o modo de
+  // edição de área é reaberto (via botão "Área" sobre um registro já
+  // existente). Permite que "Cancelar" desfaça só o que foi feito durante
+  // esta sessão de edição (desenhar, mover, redimensionar ou apagar áreas),
+  // sem afetar áreas/detecções que já existiam antes de entrar no modo.
+  List<Rect>? _regionEditSnapshot;
+  List<Recognition>? _detectionsEditSnapshot;
+
   @override
   CapturaState build() {
     _yolo = ref.read(yoloServiceProvider);
+    _regionEditSnapshot = null;
+    _detectionsEditSnapshot = null;
     return const CapturaState();
   }
 
@@ -210,6 +328,11 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
   Future<void> confirmRegionAndProcess() async {
     final session = state.current;
     if (session == null) return;
+
+    // Confirmando: as mudanças feitas durante a edição são mantidas, então
+    // o snapshot usado por "Cancelar" não é mais necessário.
+    _regionEditSnapshot = null;
+    _detectionsEditSnapshot = null;
 
     final idx = state.currentIndex;
     var newFotos = [...state.fotos];
@@ -289,14 +412,88 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
+  /// Permanently discards a region that was picked up via [beginEditRegion]
+  /// (dropped on the trash target while being dragged), instead of putting
+  /// it back with [addSavedRegion]. Since [beginEditRegion] already removed
+  /// it from `savedRegions`, this only needs to filter out any detections
+  /// whose center falls inside it — mirroring what [removeSavedRegion] does
+  /// for a region that's still in the list — and clear `draggingRegion`.
+  void discardDraggedRegion(Rect region) {
+    if (state.fotos.isEmpty) return;
+    final idx = state.currentIndex;
+    final session = state.fotos[idx];
+    final newDetections = session.detections.where((r) {
+      final cx = (r.location.left + r.location.right) / 2;
+      final cy = (r.location.top + r.location.bottom) / 2;
+      return !region.contains(Offset(cx, cy));
+    }).toList();
+    final newFotos = [...state.fotos];
+    newFotos[idx] = session.copyWith(detections: newDetections);
+    state = state.copyWith(
+      fotos: newFotos,
+      draggingRegion: null,
+      isDirty: true,
+    );
+  }
+
   void setDraggingRegion(Rect? region) {
     state = state.copyWith(draggingRegion: region);
   }
 
+  /// Picks up an already-saved region so it can be resized/moved live.
+  ///
+  /// Unlike [removeSavedRegion], this does NOT touch `detections` — the
+  /// region is only temporarily removed from `savedRegions` (it reappears,
+  /// possibly with a new shape, once the edit gesture ends and the caller
+  /// calls [addSavedRegion] again). Returns the removed rect so the caller
+  /// can seed it into `draggingRegion` and use it as the resize/move
+  /// reference, or null if the index was invalid.
+  Rect? beginEditRegion(int regionIndex) {
+    if (state.fotos.isEmpty) return null;
+    final idx = state.currentIndex;
+    final session = state.fotos[idx];
+    if (regionIndex < 0 || regionIndex >= session.savedRegions.length) {
+      return null;
+    }
+    final region = session.savedRegions[regionIndex];
+    final newRegions = [...session.savedRegions]..removeAt(regionIndex);
+    final newFotos = [...state.fotos];
+    newFotos[idx] = session.copyWith(savedRegions: newRegions);
+    state = state.copyWith(fotos: newFotos, draggingRegion: region);
+    return region;
+  }
+
   void setIsRegionMode(bool value) {
+    if (value) {
+      // Entrando no modo de edição: guarda o estado atual para que
+      // "Cancelar" possa restaurá-lo exatamente, descartando só o que for
+      // feito a partir de agora (novas áreas, moves/resizes, ou deleções
+      // via arraste-para-lixeira e as detecções que elas removem).
+      final session = state.current;
+      _regionEditSnapshot = session?.savedRegions;
+      _detectionsEditSnapshot = session?.detections;
+    }
     state = state.copyWith(
       isRegionMode: value,
       isEditMode: value ? false : state.isEditMode,
+    );
+  }
+
+  void cancelRegionMode() {
+    if (state.fotos.isEmpty) return;
+    final idx = state.currentIndex;
+    final session = state.fotos[idx];
+    final newFotos = [...state.fotos];
+    newFotos[idx] = session.copyWith(
+      savedRegions: _regionEditSnapshot ?? session.savedRegions,
+      detections: _detectionsEditSnapshot ?? session.detections,
+    );
+    _regionEditSnapshot = null;
+    _detectionsEditSnapshot = null;
+    state = state.copyWith(
+      fotos: newFotos,
+      isRegionMode: false,
+      draggingRegion: null,
     );
   }
 
@@ -450,6 +647,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
 
       final savedPaths = <String>[];
       final detecoesPorFoto = <String>[];
+      final regioesPorFoto = <String>[];
       for (int i = 0; i < state.fotos.length; i++) {
         final session = state.fotos[i];
         final timestamp = DateTime.now().millisecondsSinceEpoch + i;
@@ -462,6 +660,11 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         }
         detecoesPorFoto.add(
           jsonEncode(session.detections.map((r) => r.toJson()).toList()),
+        );
+        regioesPorFoto.add(
+          jsonEncode(session.savedRegions
+              .map((rect) => [rect.left, rect.top, rect.right, rect.bottom])
+              .toList()),
         );
       }
 
@@ -477,6 +680,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         dataCaptura: DateTime.now(),
         status: existing?.status ?? StatusFiscalizacao.emAndamento,
         detecoesPorFoto: detecoesPorFoto,
+        regioesPorFoto: regioesPorFoto,
         volumeTotalM3: existing?.volumeTotalM3 ?? 0.0,
       );
       if (existing != null) registro.isarId = existing.isarId;
@@ -511,14 +715,38 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
               .toList();
         }
 
+        List<Rect> savedRegions = [];
+        if (i < registro.regioesPorFoto.length) {
+          final list = jsonDecode(registro.regioesPorFoto[i]) as List;
+          savedRegions = list
+              .map((region) {
+                final r = region as List;
+                if (r.length == 4) {
+                  return Rect.fromLTRB(
+                    (r[0] as num).toDouble(),
+                    (r[1] as num).toDouble(),
+                    (r[2] as num).toDouble(),
+                    (r[3] as num).toDouble(),
+                  );
+                }
+                return null;
+              })
+              .whereType<Rect>()
+              .toList();
+        }
+
         sessions.add(FotoSession(
           imageFile: file,
           decodedImage: decoded,
           detections: detections,
+          savedRegions: savedRegions,
           awaitingRegionSelection: false,
         ));
       }
 
+      // Carrega sem nenhum modo ativo — savedRegions ficam guardadas na
+      // sessão e reaparecem quando o fiscal tocar em "Área" para editar,
+      // mas a tela não deve abrir automaticamente em modo de edição.
       state = state.copyWith(
         fotos: sessions,
         currentIndex: sessions.isNotEmpty ? sessions.length - 1 : 0,
