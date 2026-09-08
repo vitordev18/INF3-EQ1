@@ -48,14 +48,19 @@ const FiscalizacaoRegistroModelSchema = CollectionSchema(
       name: r'id',
       type: IsarType.string,
     ),
-    r'status': PropertySchema(
+    r'regioesPorFoto': PropertySchema(
       id: 6,
+      name: r'regioesPorFoto',
+      type: IsarType.stringList,
+    ),
+    r'status': PropertySchema(
+      id: 7,
       name: r'status',
       type: IsarType.byte,
       enumMap: _FiscalizacaoRegistroModelstatusEnumValueMap,
     ),
     r'volumeTotalM3': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'volumeTotalM3',
       type: IsarType.double,
     )
@@ -96,6 +101,13 @@ int _fiscalizacaoRegistroModelEstimateSize(
     }
   }
   bytesCount += 3 + object.id.length * 3;
+  bytesCount += 3 + object.regioesPorFoto.length * 3;
+  {
+    for (var i = 0; i < object.regioesPorFoto.length; i++) {
+      final value = object.regioesPorFoto[i];
+      bytesCount += value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -111,8 +123,9 @@ void _fiscalizacaoRegistroModelSerialize(
   writer.writeString(offsets[3], object.dofItemId);
   writer.writeStringList(offsets[4], object.fotoPaths);
   writer.writeString(offsets[5], object.id);
-  writer.writeByte(offsets[6], object.status.index);
-  writer.writeDouble(offsets[7], object.volumeTotalM3);
+  writer.writeStringList(offsets[6], object.regioesPorFoto);
+  writer.writeByte(offsets[7], object.status.index);
+  writer.writeDouble(offsets[8], object.volumeTotalM3);
 }
 
 FiscalizacaoRegistroModel _fiscalizacaoRegistroModelDeserialize(
@@ -128,10 +141,11 @@ FiscalizacaoRegistroModel _fiscalizacaoRegistroModelDeserialize(
     dofItemId: reader.readString(offsets[3]),
     fotoPaths: reader.readStringList(offsets[4]) ?? [],
     id: reader.readString(offsets[5]),
+    regioesPorFoto: reader.readStringList(offsets[6]) ?? const [],
     status: _FiscalizacaoRegistroModelstatusValueEnumMap[
-            reader.readByteOrNull(offsets[6])] ??
+            reader.readByteOrNull(offsets[7])] ??
         StatusFiscalizacao.pendente,
-    volumeTotalM3: reader.readDoubleOrNull(offsets[7]) ?? 0.0,
+    volumeTotalM3: reader.readDoubleOrNull(offsets[8]) ?? 0.0,
   );
   object.isarId = id;
   return object;
@@ -157,10 +171,12 @@ P _fiscalizacaoRegistroModelDeserializeProp<P>(
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
+      return (reader.readStringList(offset) ?? const []) as P;
+    case 7:
       return (_FiscalizacaoRegistroModelstatusValueEnumMap[
               reader.readByteOrNull(offset)] ??
           StatusFiscalizacao.pendente) as P;
-    case 7:
+    case 8:
       return (reader.readDoubleOrNull(offset) ?? 0.0) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1178,6 +1194,234 @@ extension FiscalizacaoRegistroModelQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'regioesPorFoto',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'regioesPorFoto',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'regioesPorFoto',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'regioesPorFoto',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'regioesPorFoto',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'regioesPorFoto',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+          QAfterFilterCondition>
+      regioesPorFotoElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'regioesPorFoto',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+          QAfterFilterCondition>
+      regioesPorFotoElementMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'regioesPorFoto',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'regioesPorFoto',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'regioesPorFoto',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'regioesPorFoto',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'regioesPorFoto',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'regioesPorFoto',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'regioesPorFoto',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'regioesPorFoto',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
+      QAfterFilterCondition> regioesPorFotoLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'regioesPorFoto',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel,
       QAfterFilterCondition> statusEqualTo(StatusFiscalizacao value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -1539,6 +1783,13 @@ extension FiscalizacaoRegistroModelQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel, QDistinct>
+      distinctByRegioesPorFoto() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'regioesPorFoto');
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, FiscalizacaoRegistroModel, QDistinct>
       distinctByStatus() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'status');
@@ -1601,6 +1852,13 @@ extension FiscalizacaoRegistroModelQueryProperty on QueryBuilder<
       idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<FiscalizacaoRegistroModel, List<String>, QQueryOperations>
+      regioesPorFotoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'regioesPorFoto');
     });
   }
 

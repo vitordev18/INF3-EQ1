@@ -161,6 +161,7 @@ class FiscalizacaoLocalDatasource {
       dataCaptura: existing?.dataCaptura ?? DateTime.now(),
       status: status,
       detecoesPorFoto: existing?.detecoesPorFoto ?? const [],
+      regioesPorFoto: existing?.regioesPorFoto ?? const [],
       volumeTotalM3: volume,
     );
     if (existing != null) registro.isarId = existing.isarId;

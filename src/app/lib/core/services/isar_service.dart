@@ -4,6 +4,7 @@ import '../../features/dof/data/models/dof_item_model.dart';
 import '../../features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
 
 import '../../features/fiscalizacao/data/models/medicao_grupo_model.dart';
+import '../../features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
 
 class IsarService {
   late Future<Isar> db;
@@ -17,9 +18,10 @@ class IsarService {
       final dir = await getApplicationDocumentsDirectory();
       return await Isar.open(
         [
-          DofItemModelSchema, 
+          DofItemModelSchema,
           FiscalizacaoRegistroModelSchema,
           MedicaoGrupoModelSchema,
+          FiscalizacaoSessaoModelSchema,
         ],
         directory: dir.path,
         inspector: true,

@@ -17,6 +17,11 @@ class FiscalizacaoRegistroModel {
   /// Índice alinhado com fotoPaths. Default [] garante compatibilidade com registros antigos.
   List<String> detecoesPorFoto = [];
 
+  /// JSON-encoded `List<List<double>>` (serialized Rect as [left, top, right, bottom]) por foto.
+  /// Representa as `savedRegions` desenhadas pelo fiscal em cada foto.
+  /// Índice alinhado com fotoPaths. Default [] garante compatibilidade com registros antigos.
+  List<String> regioesPorFoto = [];
+
   /// Soma do volume (m³) de todos os MedicaoGrupoModel desta fiscalização.
   /// 0.0 enquanto o fiscal não preencher a tela de Medidas.
   double volumeTotalM3 = 0.0;
@@ -32,6 +37,7 @@ class FiscalizacaoRegistroModel {
     required this.dataCaptura,
     required this.status,
     this.detecoesPorFoto = const [],
+    this.regioesPorFoto = const [],
     this.volumeTotalM3 = 0.0,
   });
 }
