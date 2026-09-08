@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +25,12 @@ class MedidasScreen extends ConsumerStatefulWidget {
 }
 
 class _MedidasScreenState extends ConsumerState<MedidasScreen> {
+  DateTime? _lastErrorShown;
+  bool _errorMessageVisible = false;
+  Timer? _errorDismissTimer;
+  static const _errorRateLimit = Duration(seconds: 2);
+  static const _snackBarDuration = Duration(seconds: 1);
+
   @override
   void initState() {
     super.initState();
@@ -31,6 +39,12 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
           .read(medidasViewModelProvider.notifier)
           .initialize(widget.dofItem, widget.fotoIndex);
     });
+  }
+
+  @override
+  void dispose() {
+    _errorDismissTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _handleBackPress() async {
@@ -85,13 +99,25 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
   }
 
   void _mostrarAlerta(String message) {
+    final now = DateTime.now();
+    if (_lastErrorShown != null &&
+        now.difference(_lastErrorShown!) < _errorRateLimit) {
+      return;
+    }
+    _lastErrorShown = now;
+    _errorDismissTimer?.cancel();
+    setState(() => _errorMessageVisible = true);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
+        duration: _snackBarDuration,
       ),
     );
+    _errorDismissTimer = Timer(_snackBarDuration, () {
+      if (mounted) setState(() => _errorMessageVisible = false);
+    });
   }
 
   @override
@@ -113,8 +139,9 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
         backgroundColor: Colors.grey.shade50,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.chevron_left),
             onPressed: _handleBackPress,
+            iconSize: 30,
           ),
           title: Text(
             'Medidas — Foto ${vmState.currentFotoIndex + 1}',
@@ -338,7 +365,8 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                                 child: ElevatedButton.icon(
                                   onPressed:
                                       (pecasRestantes == 0 &&
-                                          !vmState.emEdicao)
+                                          !vmState.emEdicao) ||
+                                      _errorMessageVisible
                                       ? null
                                       : _adicionarNaTabelaLocal,
                                   icon: Icon(
