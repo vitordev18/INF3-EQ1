@@ -34,6 +34,12 @@ class DofItemModel implements DofItem {
   @override
   DateTime? criadoEm;
 
+  /// Vincula este item à fiscalização/lote (FiscalizacaoSessaoModel) em que
+  /// foi importado. Default '' (não `late`) de propósito: linhas gravadas
+  /// pelo schema anterior (sem este campo) precisam continuar deserializando
+  /// sem erro no Isar. '' é tratado como "sem sessão" (dado legado).
+  String sessaoId;
+
   DofItemModel({
     required this.id,
     required this.numero,
@@ -44,6 +50,7 @@ class DofItemModel implements DofItem {
     required this.saldoTotal,
     required this.unidade,
     DateTime? criadoEm,
+    this.sessaoId = '',
   }) : criadoEm = criadoEm ?? DateTime.now();
 
   factory DofItemModel.fromJson(Map<String, dynamic> json) {
@@ -59,6 +66,7 @@ class DofItemModel implements DofItem {
       criadoEm: json['criadoEm'] != null
           ? DateTime.parse(json['criadoEm'] as String)
           : null,
+      sessaoId: json['sessaoId'] as String? ?? '',
     );
   }
 
@@ -73,6 +81,7 @@ class DofItemModel implements DofItem {
       'saldoTotal': saldoTotal,
       'unidade': unidade,
       'criadoEm': criadoEm?.toIso8601String(),
+      'sessaoId': sessaoId,
     };
   }
 
@@ -109,6 +118,7 @@ class DofItemModel implements DofItem {
     double? saldoTotal,
     String? unidade,
     DateTime? criadoEm,
+    String? sessaoId,
   }) {
     return DofItemModel(
       id: id ?? this.id,
@@ -120,6 +130,7 @@ class DofItemModel implements DofItem {
       saldoTotal: saldoTotal ?? this.saldoTotal,
       unidade: unidade ?? this.unidade,
       criadoEm: criadoEm ?? this.criadoEm,
+      sessaoId: sessaoId ?? this.sessaoId,
     );
   }
 }

@@ -4,10 +4,48 @@ import 'package:go_router/go_router.dart';
 
 import 'package:app/core/theme/app_colors.dart';
 import 'package:app/core/widgets/app_scaffold.dart';
+import 'package:app/core/widgets/action_bottom_bar.dart';
+import 'package:app/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
 import 'package:app/features/dof/presentation/viewmodels/upload_dof_viewmodel.dart';
 
 class UploadDofScreen extends ConsumerWidget {
   const UploadDofScreen({super.key});
+
+  /// Fiscalização anterior ainda em andamento: pergunta se o usuário quer
+  /// encerrá-la (com os itens não terminados registrados como pendentes no
+  /// histórico) antes de abrir a nova a partir desta planilha.
+  Future<bool> _confirmarEncerramentoAnterior(
+    BuildContext context,
+    FiscalizacaoSessaoModel sessaoAtiva,
+  ) async {
+    final confirmou = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Fiscalização em andamento'),
+        content: Text(
+          'A fiscalização de "${sessaoAtiva.madeireiraNome}" ainda não foi '
+          'concluída. Ao importar esta nova planilha, ela será encerrada e '
+          'os itens não fiscalizados ficarão registrados como pendentes no '
+          'histórico.\n\nDeseja continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.green,
+              foregroundColor: AppColors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Encerrar e continuar'),
+          ),
+        ],
+      ),
+    );
+    return confirmou ?? false;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -16,14 +54,19 @@ class UploadDofScreen extends ConsumerWidget {
 
     return AppScaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: const Text(
           'Upload do DOF',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 19,
+          ),
         ),
-        backgroundColor: AppColors.green,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
-          onPressed: () => context.go('/'),
+          icon: const Icon(Icons.chevron_left, color: AppColors.black),
+          onPressed: () => context.go('/home'),
+          iconSize: 30,
         ),
       ),
       body: SingleChildScrollView(
@@ -48,8 +91,9 @@ class UploadDofScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     Text(
                       'Importar Planilha DOF',
-                      style: Theme.of(context).textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     if (state.statusMessage != null)
@@ -68,9 +112,7 @@ class UploadDofScreen extends ConsumerWidget {
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.all(
-                              Radius.circular(12),
-                            ),
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
                           ),
                           backgroundColor: AppColors.green,
                           foregroundColor: AppColors.white,
@@ -88,6 +130,25 @@ class UploadDofScreen extends ConsumerWidget {
                                 ),
                               )
                             : const Text('Selecionar Planilha'),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      onChanged: vm.setMadeireiraNome,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        labelText: 'Nome da Madeireira *',
+                        hintText: 'Ex: Madeireira Rio Verde Ltda',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.green,
+                            width: 2,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -135,50 +196,38 @@ class UploadDofScreen extends ConsumerWidget {
           ],
         ),
       ),
-      bottomBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          border: const Border(
-            top: BorderSide(color: AppColors.lightGrey),
-          ),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12)),
-              ),
-              backgroundColor: AppColors.green,
-              disabledBackgroundColor: Colors.grey[300],
-            ),
-            onPressed: state.canConfirm
-                ? () async {
-                    final ok = await vm.confirmarESalvar();
-                    if (ok && context.mounted) {
-                      context.go('/fiscalizacao');
-                    }
-                  }
-                : null,
-            child: state.isSaving
-                ? const SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text(
-                    'Confirmar e Prosseguir',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+      bottomBar: ActionBottomBar(
+        isDisabled: !state.canConfirm,
+        isLoading: state.isSaving,
+        onPressed: () async {
+          final resultado = await vm.confirmarESalvar();
+          if (!context.mounted) return;
+
+          switch (resultado) {
+            case SalvouComSucesso():
+              context.go('/fiscalizacao');
+            case PrecisaConfirmarEncerramento(:final sessaoAtiva):
+              final confirmou = await _confirmarEncerramentoAnterior(
+                context,
+                sessaoAtiva,
+              );
+              if (!confirmou) return;
+              final segundoResultado = await vm.confirmarESalvar(
+                encerrarAnterior: true,
+              );
+              if (context.mounted && segundoResultado is SalvouComSucesso) {
+                context.go('/fiscalizacao');
+              }
+            case ErroAoSalvar():
+              break; // mensagem já exibida via state.statusMessage
+          }
+        },
+        child: const Text(
+          'Confirmar e Prosseguir',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),

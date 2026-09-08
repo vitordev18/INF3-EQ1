@@ -14,7 +14,22 @@ final dofLocalDatasourceProvider = Provider<DofLocalDatasource>((ref) {
 
 class ParsedDofItemsNotifier extends Notifier<List<DofItemModel>> {
   @override
-  List<DofItemModel> build() => [];
+  List<DofItemModel> build() {
+    // Cold-start (app recém-aberto ou provider recriado): sem isso, esta
+    // lista ficava vazia até o próximo import, mesmo com itens já
+    // persistidos no Isar de uma fiscalização em andamento. Devolve [] de
+    // imediato (Notifier.build() é síncrono) e hidrata em seguida; quem
+    // observa este provider recebe o estado populado assim que a leitura do
+    // Isar terminar.
+    _hydrate();
+    return [];
+  }
+
+  Future<void> _hydrate() async {
+    final datasource = ref.read(dofLocalDatasourceProvider);
+    final itens = await datasource.getAllDofs();
+    state = itens;
+  }
 
   void updateItems(List<DofItemModel> items) {
     state = items;

@@ -57,8 +57,13 @@ const DofItemModelSchema = CollectionSchema(
       name: r'saldoTotal',
       type: IsarType.double,
     ),
-    r'unidade': PropertySchema(
+    r'sessaoId': PropertySchema(
       id: 8,
+      name: r'sessaoId',
+      type: IsarType.string,
+    ),
+    r'unidade': PropertySchema(
+      id: 9,
       name: r'unidade',
       type: IsarType.string,
     )
@@ -88,6 +93,7 @@ int _dofItemModelEstimateSize(
   bytesCount += 3 + object.nomePopular.length * 3;
   bytesCount += 3 + object.numero.length * 3;
   bytesCount += 3 + object.produto.length * 3;
+  bytesCount += 3 + object.sessaoId.length * 3;
   bytesCount += 3 + object.unidade.length * 3;
   return bytesCount;
 }
@@ -106,7 +112,8 @@ void _dofItemModelSerialize(
   writer.writeString(offsets[5], object.produto);
   writer.writeDouble(offsets[6], object.saldoLivre);
   writer.writeDouble(offsets[7], object.saldoTotal);
-  writer.writeString(offsets[8], object.unidade);
+  writer.writeString(offsets[8], object.sessaoId);
+  writer.writeString(offsets[9], object.unidade);
 }
 
 DofItemModel _dofItemModelDeserialize(
@@ -124,7 +131,8 @@ DofItemModel _dofItemModelDeserialize(
     produto: reader.readString(offsets[5]),
     saldoLivre: reader.readDouble(offsets[6]),
     saldoTotal: reader.readDouble(offsets[7]),
-    unidade: reader.readString(offsets[8]),
+    sessaoId: reader.readStringOrNull(offsets[8]) ?? '',
+    unidade: reader.readString(offsets[9]),
   );
   object.isarId = id;
   return object;
@@ -154,6 +162,8 @@ P _dofItemModelDeserializeProp<P>(
     case 7:
       return (reader.readDouble(offset)) as P;
     case 8:
+      return (reader.readStringOrNull(offset) ?? '') as P;
+    case 9:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1192,6 +1202,142 @@ extension DofItemModelQueryFilter
   }
 
   QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sessaoId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'sessaoId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'sessaoId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'sessaoId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'sessaoId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'sessaoId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'sessaoId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'sessaoId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'sessaoId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
+      sessaoIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'sessaoId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterFilterCondition>
       unidadeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1437,6 +1583,18 @@ extension DofItemModelQuerySortBy
     });
   }
 
+  QueryBuilder<DofItemModel, DofItemModel, QAfterSortBy> sortBySessaoId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessaoId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterSortBy> sortBySessaoIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessaoId', Sort.desc);
+    });
+  }
+
   QueryBuilder<DofItemModel, DofItemModel, QAfterSortBy> sortByUnidade() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'unidade', Sort.asc);
@@ -1565,6 +1723,18 @@ extension DofItemModelQuerySortThenBy
     });
   }
 
+  QueryBuilder<DofItemModel, DofItemModel, QAfterSortBy> thenBySessaoId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessaoId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<DofItemModel, DofItemModel, QAfterSortBy> thenBySessaoIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'sessaoId', Sort.desc);
+    });
+  }
+
   QueryBuilder<DofItemModel, DofItemModel, QAfterSortBy> thenByUnidade() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'unidade', Sort.asc);
@@ -1634,6 +1804,13 @@ extension DofItemModelQueryWhereDistinct
     });
   }
 
+  QueryBuilder<DofItemModel, DofItemModel, QDistinct> distinctBySessaoId(
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'sessaoId', caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<DofItemModel, DofItemModel, QDistinct> distinctByUnidade(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1696,6 +1873,12 @@ extension DofItemModelQueryProperty
   QueryBuilder<DofItemModel, double, QQueryOperations> saldoTotalProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'saldoTotal');
+    });
+  }
+
+  QueryBuilder<DofItemModel, String, QQueryOperations> sessaoIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'sessaoId');
     });
   }
 
