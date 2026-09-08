@@ -2,7 +2,10 @@ import 'package:app/features/dof/data/models/dof_item_model.dart';
 import 'package:app/features/dof/presentation/screens/upload_dof_screen.dart';
 import 'package:app/features/fiscalizacao/presentation/captura/captura_screen.dart';
 import 'package:app/features/fiscalizacao/presentation/captura/medidas_screen.dart';
+import 'package:app/features/fiscalizacao/presentation/screens/concluir_fiscalizacao_screen.dart';
 import 'package:app/features/fiscalizacao/presentation/screens/fiscalizacao_screen.dart';
+import 'package:app/features/historico/presentation/screens/historico_screen.dart';
+import 'package:app/features/home/presentation/screens/home_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,8 +16,11 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
+      GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+      GoRoute(path: '/historico', builder: (context, state) => const HistoricoScreen()),
       GoRoute(path: '/upload-dof', builder: (context, state) => const UploadDofScreen()),
       GoRoute(path: '/fiscalizacao', builder: (context, state) => const FiscalizacaoHubScreen()),
+      GoRoute(path: '/fiscalizacao/concluir', builder: (context, state) => const ConcluirFiscalizacaoScreen()),
       GoRoute(
         path: '/fiscalizacao/captura',
         builder: (context, state) {
