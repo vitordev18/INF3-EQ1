@@ -1,218 +1,201 @@
 import 'package:app/core/theme/app_colors.dart';
+import 'package:app/core/widgets/app_icon.dart';
 import 'package:app/core/widgets/app_scaffold.dart';
+import 'package:app/core/widgets/action_bottom_bar.dart';
+import 'package:app/core/widgets/fiscaliza_list_tile.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/dof/presentation/providers/dof_providers.dart';
 import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
 import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
+import 'package:app/features/fiscalizacao/presentation/widgets/status_pill.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class FiscalizacaoHubScreen extends ConsumerStatefulWidget {
+/// Hub de Fiscalização: lista os produtos (`DofItemModel`) da sessão ativa
+/// (ver [itensDaSessaoAtivaProvider]) para o fiscal escolher qual fotografar
+/// a seguir, com atalhos para adicionar um produto extra e para concluir a
+/// fiscalização inteira. Réplica fiel de `FiscalizacaoHubScreen` em
+/// `fiscaliza-plano-historico/index.html`.
+class FiscalizacaoHubScreen extends ConsumerWidget {
   const FiscalizacaoHubScreen({super.key});
 
-  @override
-  ConsumerState<FiscalizacaoHubScreen> createState() =>
-      _FiscalizacaoHubScreenState();
-}
+  static const _subtitleColor = Color(0xFF616161);
+  static const _saldoIconColor = Color(0xFF757575);
+  static const _saldoTextColor = Color(0xFF000000);
 
-class _FiscalizacaoHubScreenState extends ConsumerState<FiscalizacaoHubScreen> {
-  Color _getStatusColor(StatusFiscalizacao status) {
-    switch (status) {
-      case StatusFiscalizacao.pendente:
-        return Colors.grey.shade600;
-      case StatusFiscalizacao.emAndamento:
-        return Colors.orange.shade700;
-      case StatusFiscalizacao.concluido:
-        return AppColors.green;
-      case StatusFiscalizacao.excedente:
-        return Colors.red.shade700;
-    }
-  }
+  String _formatNum3(double v) => v.toStringAsFixed(3).replaceAll('.', ',');
 
-  String _getStatusText(StatusFiscalizacao status) {
-    switch (status) {
-      case StatusFiscalizacao.pendente:
-        return 'Pendente';
-      case StatusFiscalizacao.emAndamento:
-        return 'Em Andamento';
-      case StatusFiscalizacao.concluido:
-        return 'Concluído';
-      case StatusFiscalizacao.excedente:
-        return 'Excedente';
-    }
-  }
-
-  void _iniciarFiscalizacao(DofItemModel dofItem) {
+  void _iniciarFiscalizacao(BuildContext context, DofItemModel dofItem) {
     context.push('/fiscalizacao/captura', extra: dofItem);
   }
 
-  void _adicionarProdutoExtra() {
+  void _adicionarProdutoExtra(BuildContext context) {
     context.push('/fiscalizacao/cadastro');
   }
 
+  void _concluirFiscalizacao(BuildContext context) {
+    context.push('/fiscalizacao/concluir');
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final produtosLidos = ref.watch(parsedDofItemsProvider);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final itens = ref.watch(itensDaSessaoAtivaProvider);
 
     return AppScaffold(
-      backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
-        backgroundColor: AppColors.green,
+        centerTitle: true,
         title: const Text(
           'Hub de Fiscalização',
-          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 19,
+          ),
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
-          onPressed: () => context.go('/upload-dof'),
+          icon: const Icon(Icons.chevron_left, color: AppColors.black),
+          onPressed: () => context.go('/home'),
+          iconSize: 30,
         ),
       ),
-      body: produtosLidos.isEmpty
+      body: itens.isEmpty
           ? const Center(
               child: Text(
                 'Nenhum produto lido da planilha.',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
             )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16.0),
-              itemCount: produtosLidos.length,
-              separatorBuilder: (context, i) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final dofItem = produtosLidos[index];
-
-                // Read real status from Isar
-                final registroAsync = ref.watch(
-                  registroPorItemProvider(dofItem.id),
-                );
-                final statusAtual =
-                    registroAsync.whenOrNull(data: (r) => r?.status) ??
-                    StatusFiscalizacao.pendente;
-                final statusColor = _getStatusColor(statusAtual);
-
-                final volumeTotalM3 =
-                    registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
-
-                // Count from last registro (if any)
-                final contagemSalva = registroAsync.whenOrNull(
-                  data: (r) => r?.contagemTotal,
-                );
-
-                return Card(
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: Colors.grey.shade300),
+          : Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 90),
+                  child: Column(
+                    children: [
+                      for (int i = 0; i < itens.length; i++)
+                        _buildItemTile(
+                          context,
+                          ref,
+                          itens[i],
+                          showDivider: i != itens.length - 1,
+                        ),
+                    ],
                   ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _iniciarFiscalizacao(dofItem),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  dofItem.produto,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.black,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: statusColor,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  _getStatusText(statusAtual),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: statusColor,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Espécie: ${dofItem.especieCientifico} (${dofItem.nomePopular})',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.inventory_2_outlined,
-                                size: 16,
-                                color: Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Saldo Declarado: ${dofItem.saldoTotal.toStringAsFixed(2)} ${dofItem.unidade}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.black,
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (volumeTotalM3 != 0.0) ...[
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.check_circle_outline,
-                                  size: 16,
-                                  color: statusColor,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Volume Total: ${volumeTotalM3.toStringAsFixed(3)} m³',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: statusColor,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
+                ),
+                Positioned(
+                  right: 14,
+                  bottom: 66,
+                  child: _buildProdutoExtraPill(context),
+                ),
+              ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _adicionarProdutoExtra,
-        backgroundColor: AppColors.green,
-        icon: const Icon(Icons.add, color: AppColors.white),
-        label: const Text(
-          'Produto Extra',
-          style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold),
+      bottomBar: ActionBottomBar(
+        onPressed: () => _concluirFiscalizacao(context),
+        child: const Text(
+          'Concluir Fiscalização',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItemTile(
+    BuildContext context,
+    WidgetRef ref,
+    DofItemModel item, {
+    required bool showDivider,
+  }) {
+    final registroAsync = ref.watch(registroPorItemProvider(item.id));
+    final status =
+        registroAsync.whenOrNull(data: (r) => r?.status) ??
+        StatusFiscalizacao.pendente;
+    final volumeTotalM3 = registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
+    final corStatus = StatusPill.colorFor(status);
+    final temVolume = volumeTotalM3 != 0.0;
+
+    return FiscalizaListTile(
+      title: item.produto,
+      onTap: () => _iniciarFiscalizacao(context, item),
+      pill: StatusPill(status),
+      metaRows: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Espécie: ${item.especieCientifico} (${item.nomePopular})',
+              style: const TextStyle(fontSize: 10, color: _subtitleColor),
+            ),
+            const SizedBox(height: 6),
+            FiscalizaMetaChip(
+              icon: AppIcon.box,
+              text:
+                  'Saldo Declarado: ${_formatNum3(item.saldoTotal)} '
+                  '${item.unidade}',
+              color: _saldoTextColor,
+              iconColor: _saldoIconColor,
+              iconSize: 12,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              gap: 5,
+            ),
+          ],
+        ),
+      ],
+      highlightRow: temVolume
+          ? FiscalizaMetaChip(
+              icon: AppIcon.checkCircle,
+              text: 'Volume Total: ${_formatNum3(volumeTotalM3)} m³',
+              color: corStatus,
+              iconSize: 12,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              gap: 5,
+            )
+          : null,
+      showDivider: showDivider,
+    );
+  }
+
+  Widget _buildProdutoExtraPill(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.green,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _adicionarProdutoExtra(context),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSvgIcon(AppIcon.plus, size: 13, color: Colors.white),
+                SizedBox(width: 5),
+                Text(
+                  'Produto Extra',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
