@@ -1,0 +1,60 @@
+{
+  "nome": "FISCALIZA",
+  "slogan": "Uma frase curta e marcante que resume a proposta de valor do projeto.",
+  "ano": 2026,
+  "turma": "INF3",
+  "curso": "Técnico em Informática",
+  "tecnologia_principal": "Flutter",
+  "tecnologias": [
+    "Flutter",
+    "Dart"
+  ],
+  "objetivo": "O Fiscaliza tem o objetivo de facilitar as fiscalizações em campo de policiais Ambientais por meio de contagens com Visão Computacional, dimensionamento manual e geração de relatórios instantâneos.",
+  "video_url": null,
+  "repositorio_url": "https://github.com/vitordev18/INF3-EQ1.git",
+  "deploy_url": "https://eq.projetoscti.com.br/26-fiscaliza",
+  "url_atual": null,
+  "autores": [
+    {
+      "nome": "Sarah dos Santos Oliveira",
+      "email": "sarah.s.oliveira@unesp.br",
+      "papel": "Product Owner (PO)"
+    },
+    {
+      "nome": "Matheus Coelho Germano",
+      "email": "matheus.germano@unesp.br",
+      "papel": "Scrum Master"
+    },
+    {
+      "nome": "João Pedro Ferreira",
+      "email": "joao.pf.silva@unesp.br",
+      "papel": "Tech Leader"
+    },
+    {
+      "nome": "Gabriel Henrique Heleno",
+      "email": "gh.heleno@unesp.br",
+      "papel": "Desenvolvedor"
+    },
+    {
+      "nome": "Henrique Hikaru Miyashiro",
+      "email": "henrique.hikaru@unesp.br",
+      "papel": "Desenvolvedor"
+    },
+    {
+      "nome": "Henrique Manoel Dornelas",
+      "email": "henrique.hikaru@unesp.br",
+      "papel": "Desenvolvedor"
+    },
+    {
+      "nome": "Vitor Rodrigues Ferreira",
+      "email": "vitor.r.ferreira@unesp.br",
+      "papel": "Desenvolvedor"
+    }
+  ],
+  "orientadores": [
+    {
+      "nome": "Prof. Vitor Assis Pegorari Camargo",
+      "email": "vitor.a.camargo@unesp.br"
+    }
+  ]
+}

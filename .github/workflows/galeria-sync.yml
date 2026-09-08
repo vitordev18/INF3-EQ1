@@ -1,0 +1,42 @@
+name: 🚀 Sincronizar com a Galeria CTI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'sprint-*'
+      - 'sprint/*'
+    paths:
+      - 'hub/**'
+      - '.github/workflows/galeria-sync.yml'
+  workflow_dispatch: # Permite disparar manualmente pela aba Actions do GitHub
+
+jobs:
+  sync-galeria:
+    name: Notificar Ingestão da Galeria
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📡 Enviar Webhook para a Galeria de Projetos
+        run: |
+          echo "Disparando sincronização para o repositório: ${{ github.repository }} (Branch: ${{ github.ref_name }})"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://galeria.projetoscti.com.br/api/ingestion \
+            -H "Content-Type: application/json" \
+            -d '{
+              "repo": "${{ github.repository }}",
+              "branch": "${{ github.ref_name }}"
+            }')
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Resposta da Galeria: $BODY"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Sucesso! O projeto foi sincronizado na Galeria CTI."
+          else
+            echo "❌ Erro ($HTTP_STATUS) ao sincronizar com a Galeria."
+            exit 1
+          fi
