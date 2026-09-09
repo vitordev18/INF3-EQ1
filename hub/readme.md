@@ -38,13 +38,13 @@
 
 | Integrante | Papel no Projeto | GitHub | E-mail |
 | :--- | :--- | :--- | :--- |
-| **Vitor Rodrigues Ferreira** | Desenvolvedor | [@vitordev18](https://github.com/vitordev18) | vitor.r.ferreira@unesp.br |
-| **João Pedro Ferreira** | Tech Leader | [@joao-Pedro26](https://github.com/joao-Pedro26) | joao.pf.silva@unesp.br |
-| **Matheus Coelho Germano** | Scrum Master | [@MatheusGermano2007](https://github.com/MatheusGermano2007) | matheus.germano@unesp.br |
-| **Gabriel Henrique Heleno** | Desenvolvedor | [@bielmalvado](https://github.com/biemalvado) | gh.heleno@unesp.br |
 | **Sarah dos Santos Oliveira** | Product Owner (PO) | [@sarahOliveira-tech](https://github.com/sarahOliveira-tech) | sarah.s.oliveira@unesp.br |
+| **Matheus Coelho Germano** | Scrum Master | [@MatheusGermano2007](https://github.com/MatheusGermano2007) | matheus.germano@unesp.br |
+| **João Pedro Ferreira** | Tech Leader | [@joao-Pedro26](https://github.com/joao-Pedro26) | joao.pf.silva@unesp.br |
+| **Gabriel Henrique Heleno** | Desenvolvedor | [@bielmalvado](https://github.com/biemalvado) | gh.heleno@unesp.br |
 | **Henrique Hikaru Miyashiro** | Desenvolvedor | [@henriquehikaru](https://github.com/henriquehikaru) | henrique.hikaru@unesp.br |
 | **Henrique Manoel Dornelas** | Desenvolvedor | [@Henrique-Palharim](https://github.com/Henrique-Palharim) | henrique.dornelas@unesp.br |
+| **Vitor Rodrigues Ferreira** | Desenvolvedor | [@vitordev18](https://github.com/vitordev18) | vitor.r.ferreira@unesp.br |
 
 **Orientador(a):** Prof. Vitor Assis Pegorari Camargo
 
