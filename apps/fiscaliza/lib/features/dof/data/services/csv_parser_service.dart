@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:csv/csv.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/core/logging/app_logger.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 
@@ -20,11 +21,18 @@ class CsvParserService {
 
   static List<DofItemModel> _parseContent(String csvContent) {
     try {
-      final List<List<dynamic>> rows = const CsvToListConverter().convert(
-        csvContent,
-      );
-      print('[FISCALIZA] ⚙️ FASE 1: PARSING - CSV');
-      print('[FISCALIZA] ├─ Total de linhas: ${rows.length}');
+      final normalizado = csvContent
+          .replaceAll('\r\n', '\n')
+          .replaceAll('\r', '\n');
+
+      // O número do item é preservado como texto: é por ele que o fiscal casa
+      // o item com o DOF em papel, e "001" não pode virar 1.
+      final List<List<dynamic>> rows = const CsvToListConverter(
+        eol: '\n',
+        shouldParseNumbers: false,
+      ).convert(normalizado);
+      AppLogger.info('⚙️ FASE 1: PARSING - CSV');
+      AppLogger.info('├─ Total de linhas: ${rows.length}');
 
       if (rows.isEmpty) {
         throw Exception('Arquivo CSV vazio');
@@ -42,19 +50,19 @@ class CsvParserService {
       final headers = _normalizeHeaders(
         rows[0].map((h) => h.toString()).toList(),
       );
-      print('[FISCALIZA] ├─ Detectando cabeçalhos...');
+      AppLogger.info('├─ Detectando cabeçalhos...');
       for (int i = 0; i < headers.length; i++) {
-        print('[FISCALIZA] │  ✓ "${rows[0][i]}" → "${headers[i]}"');
+        AppLogger.info('│  ✓ "${rows[0][i]}" → "${headers[i]}"');
       }
 
-      bool hasRequiredColumns = _validateRequiredColumns(headers);
+      final bool hasRequiredColumns = _validateRequiredColumns(headers);
       if (!hasRequiredColumns) {
         throw Exception('Colunas obrigatórias não encontradas');
       }
-      print('[FISCALIZA] └─ ✅ Todas as colunas obrigatórias presentes');
+      AppLogger.info('└─ ✅ Todas as colunas obrigatórias presentes');
 
       final items = <DofItemModel>[];
-      print('[FISCALIZA] ⚙️ FASE 2: EXTRAÇÃO DE DADOS');
+      AppLogger.info('⚙️ FASE 2: EXTRAÇÃO DE DADOS');
 
       for (int i = 1; i < rows.length; i++) {
         try {
@@ -65,16 +73,16 @@ class CsvParserService {
 
           final item = _rowToItem(row, headers, i + 1);
           items.add(item);
-          print(
-            '[FISCALIZA] ├─ Linha ${i + 1}: Processando item ${item.numero}... ✓',
+          AppLogger.info(
+            '├─ Linha ${i + 1}: Processando item ${item.numero}... ✓',
           );
         } catch (e) {
-          print('[FISCALIZA] ├─ Linha ${i + 1}: Erro ao processar - $e');
+          AppLogger.warn('├─ Linha ${i + 1}: Erro ao processar - $e');
           continue;
         }
       }
 
-      print('[FISCALIZA] └─ ✅ ${items.length} itens extraídos com sucesso');
+      AppLogger.info('└─ ✅ ${items.length} itens extraídos com sucesso');
       return items;
     } catch (e) {
       throw Exception('Erro ao fazer parse CSV: $e');

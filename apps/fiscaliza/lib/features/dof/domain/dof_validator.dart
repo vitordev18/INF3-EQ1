@@ -1,6 +1,6 @@
-import 'package:app/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 
-class DofValidatorService {
+class DofValidator {
   static const List<String> _requiredFields = [
     'numero',
     'produto',

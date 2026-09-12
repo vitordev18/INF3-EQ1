@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:excel/excel.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/core/logging/app_logger.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:uuid/uuid.dart';
 
 class ExcelParserService {
@@ -24,9 +25,9 @@ class ExcelParserService {
 
   static List<DofItemModel> _parseTable(Sheet table, String sheetName) {
     try {
-      print('[FISCALIZA] ⚙️ FASE 1: PARSING - Excel Workbook');
-      print('[FISCALIZA] ├─ Planilha: "$sheetName"');
-      print('[FISCALIZA] ├─ Total de linhas: ${table.rows.length}');
+      AppLogger.info('⚙️ FASE 1: PARSING - Excel Workbook');
+      AppLogger.info('├─ Planilha: "$sheetName"');
+      AppLogger.info('├─ Total de linhas: ${table.rows.length}');
 
       if (table.rows.isEmpty) {
         throw Exception('Planilha vazia');
@@ -37,19 +38,19 @@ class ExcelParserService {
         headerRow.map((cell) => cell?.value?.toString() ?? '').toList()
       );
 
-      print('[FISCALIZA] ├─ Detectando cabeçalhos...');
+      AppLogger.info('├─ Detectando cabeçalhos...');
       for (int i = 0; i < headers.length && i < headerRow.length; i++) {
-        print('[FISCALIZA] │  ✓ "${headerRow[i]?.value}" → "${headers[i]}"');
+        AppLogger.info('│  ✓ "${headerRow[i]?.value}" → "${headers[i]}"');
       }
 
-      bool hasRequiredColumns = _validateRequiredColumns(headers);
+      final bool hasRequiredColumns = _validateRequiredColumns(headers);
       if (!hasRequiredColumns) {
         throw Exception('Colunas obrigatórias não encontradas');
       }
-      print('[FISCALIZA] └─ ✅ Todas as colunas obrigatórias presentes');
+      AppLogger.info('└─ ✅ Todas as colunas obrigatórias presentes');
 
       final items = <DofItemModel>[];
-      print('[FISCALIZA] ⚙️ FASE 2: EXTRAÇÃO DE DADOS');
+      AppLogger.info('⚙️ FASE 2: EXTRAÇÃO DE DADOS');
 
       for (int i = 1; i < table.rows.length; i++) {
         try {
@@ -61,14 +62,14 @@ class ExcelParserService {
 
           final item = _rowToItem(row, headers, i + 1);
           items.add(item);
-          print('[FISCALIZA] ├─ Linha ${i + 1}: Processando item ${item.numero}... ✓');
+          AppLogger.info('├─ Linha ${i + 1}: Processando item ${item.numero}... ✓');
         } catch (e) {
-          print('[FISCALIZA] ├─ Linha ${i + 1}: Erro ao processar - $e');
+          AppLogger.warn('├─ Linha ${i + 1}: Erro ao processar - $e');
           continue;
         }
       }
 
-      print('[FISCALIZA] └─ ✅ ${items.length} itens extraídos com sucesso');
+      AppLogger.info('└─ ✅ ${items.length} itens extraídos com sucesso');
       return items;
     } catch (e) {
       throw Exception('Erro ao fazer parse da planilha: $e');

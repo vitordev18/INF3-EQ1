@@ -1,11 +1,11 @@
-import '../models/dof_item_model.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:isar/isar.dart';
-import '../../../../core/services/isar_service.dart';
+import 'package:fiscaliza/core/database/isar_service.dart';
 
-class DofLocalDatasource {
+class DofRepository {
   final IsarService _isarService;
 
-  DofLocalDatasource(this._isarService);
+  DofRepository(this._isarService);
 
   Future<void> saveDofItems(List<DofItemModel> items) async {
     final isar = await _isarService.db;
