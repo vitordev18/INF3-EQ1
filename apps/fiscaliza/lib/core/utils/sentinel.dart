@@ -1,0 +1,1 @@
+const Object kSentinel = Object();

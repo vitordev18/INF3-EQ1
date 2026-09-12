@@ -2,11 +2,27 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Fiscaliza (FVM)",
+      "name": "Fiscaliza",
+      "cwd": "apps/fiscaliza",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
-      "cwd": "src/app"
+    },
+    {
+      "name": "Fiscaliza (profile mode)",
+      "cwd": "apps/fiscaliza",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "Fiscaliza (release mode)",
+      "cwd": "apps/fiscaliza",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release"
     }
   ]
 }
