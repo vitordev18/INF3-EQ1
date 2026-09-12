@@ -1,19 +1,17 @@
+import 'package:fiscaliza/app/router/app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/core/widgets/app_scaffold.dart';
-import 'package:app/core/widgets/action_bottom_bar.dart';
-import 'package:app/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
-import 'package:app/features/dof/presentation/viewmodels/upload_dof_viewmodel.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
+import 'package:fiscaliza/design_system/components/app_scaffold.dart';
+import 'package:fiscaliza/design_system/components/action_bottom_bar.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
+import 'package:fiscaliza/features/dof/presentation/upload/upload_dof_view_model.dart';
 
 class UploadDofScreen extends ConsumerWidget {
   const UploadDofScreen({super.key});
 
-  /// Fiscalização anterior ainda em andamento: pergunta se o usuário quer
-  /// encerrá-la (com os itens não terminados registrados como pendentes no
-  /// histórico) antes de abrir a nova a partir desta planilha.
   Future<bool> _confirmarEncerramentoAnterior(
     BuildContext context,
     FiscalizacaoSessaoModel sessaoAtiva,
@@ -64,8 +62,9 @@ class UploadDofScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
+          tooltip: 'Voltar',
           icon: const Icon(Icons.chevron_left, color: AppColors.black),
-          onPressed: () => context.go('/home'),
+          onPressed: () => context.go(AppRoutes.home),
           iconSize: 30,
         ),
       ),
@@ -205,7 +204,7 @@ class UploadDofScreen extends ConsumerWidget {
 
           switch (resultado) {
             case SalvouComSucesso():
-              context.go('/fiscalizacao');
+              context.go(AppRoutes.hub);
             case PrecisaConfirmarEncerramento(:final sessaoAtiva):
               final confirmou = await _confirmarEncerramentoAnterior(
                 context,
@@ -216,10 +215,10 @@ class UploadDofScreen extends ConsumerWidget {
                 encerrarAnterior: true,
               );
               if (context.mounted && segundoResultado is SalvouComSucesso) {
-                context.go('/fiscalizacao');
+                context.go(AppRoutes.hub);
               }
             case ErroAoSalvar():
-              break; // mensagem já exibida via state.statusMessage
+              break;
           }
         },
         child: const Text(

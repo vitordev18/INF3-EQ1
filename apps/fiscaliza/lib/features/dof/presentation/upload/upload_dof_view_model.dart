@@ -1,27 +1,19 @@
+import 'package:fiscaliza/core/utils/sentinel.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/dof/data/services/csv_parser_service.dart';
-import 'package:app/features/dof/data/services/excel_parser_service.dart';
-import 'package:app/features/dof/presentation/providers/dof_providers.dart';
-import 'package:app/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/dof/data/services/csv_parser_service.dart';
+import 'package:fiscaliza/features/dof/data/services/excel_parser_service.dart';
+import 'package:fiscaliza/features/dof/data/dof_providers.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_providers.dart';
 
-const Object _sentinel = Object();
-
-/// Resultado de [UploadDofViewModel.confirmarESalvar]. Sealed para que a tela
-/// seja obrigada (via switch exaustivo) a tratar o caso em que já existe uma
-/// fiscalização em andamento, em vez de simplesmente ignorá-la como o antigo
-/// contrato `Future<bool>` permitia.
 sealed class ConfirmarESalvarResultado {}
 
-/// Já existe uma sessão ativa (fiscalização em andamento). A tela deve
-/// perguntar ao usuário se quer encerrá-la e, em caso positivo, chamar
-/// `confirmarESalvar(encerrarAnterior: true)` novamente.
 class PrecisaConfirmarEncerramento extends ConfirmarESalvarResultado {
   final FiscalizacaoSessaoModel sessaoAtiva;
   PrecisaConfirmarEncerramento(this.sessaoAtiva);
@@ -60,7 +52,7 @@ class UploadDofState {
   UploadDofState copyWith({
     bool? isImporting,
     bool? isSaving,
-    Object? statusMessage = _sentinel,
+    Object? statusMessage = kSentinel,
     bool? isError,
     List<DofItemModel>? parsedItems,
     String? madeireiraNome,
@@ -68,7 +60,7 @@ class UploadDofState {
       UploadDofState(
         isImporting: isImporting ?? this.isImporting,
         isSaving: isSaving ?? this.isSaving,
-        statusMessage: statusMessage == _sentinel
+        statusMessage: statusMessage == kSentinel
             ? this.statusMessage
             : statusMessage as String?,
         isError: isError ?? this.isError,
@@ -150,20 +142,10 @@ class UploadDofViewModel extends AutoDisposeNotifier<UploadDofState> {
     state = state.copyWith(madeireiraNome: value);
   }
 
-  /// Cria uma nova sessão de fiscalização para os itens já importados
-  /// ([state.parsedItems]) e os persiste carimbados com o `sessaoId` dessa
-  /// sessão — substitui o antigo `clearAll()` (que apagava a fiscalização
-  /// anterior a cada import).
-  ///
-  /// Se já existir uma sessão ativa, retorna [PrecisaConfirmarEncerramento]
-  /// em vez de salvar; a tela deve perguntar ao usuário e, se ele confirmar,
-  /// chamar este método de novo com `encerrarAnterior: true` para de fato
-  /// encerrar a sessão anterior (calculando seus snapshots finais) antes de
-  /// abrir a nova.
   Future<ConfirmarESalvarResultado> confirmarESalvar({
     bool encerrarAnterior = false,
   }) async {
-    final sessaoDatasource = ref.read(fiscalizacaoSessaoLocalDatasourceProvider);
+    final sessaoDatasource = ref.read(fiscalizacaoSessaoRepositoryProvider);
     final sessaoAtiva = await sessaoDatasource.getSessaoAtiva();
 
     if (sessaoAtiva != null && !encerrarAnterior) {
@@ -184,7 +166,7 @@ class UploadDofViewModel extends AutoDisposeNotifier<UploadDofState> {
           .map((item) => item.copyWith(sessaoId: novaSessao.id))
           .toList();
 
-      final datasource = ref.read(dofLocalDatasourceProvider);
+      final datasource = ref.read(dofRepositoryProvider);
       await datasource.saveDofItems(itensComSessao);
       ref.read(parsedDofItemsProvider.notifier).updateItems(itensComSessao);
 
