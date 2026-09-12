@@ -57,7 +57,7 @@ The project was developed as a **capstone (TCC)** by a team, applying mobile dev
 ```bash
 # Clone the repository
 git clone https://github.com/vitordev18/INF3-EQ1.git
-cd INF3-EQ1/src/app
+cd INF3-EQ1/apps/fiscaliza
 
 # Install dependencies
 flutter pub get
@@ -65,6 +65,18 @@ flutter pub get
 # Run the app
 flutter run
 ```
+
+### Repository layout
+
+```
+apps/fiscaliza/   Flutter app (Dart package: fiscaliza)
+docs/             Product, management, architecture, business and ADRs
+web/landing/      Product landing page
+hub/              CTI gallery integration
+tools/            Local check script (mirrors CI)
+```
+
+See [docs/README.md](docs/README.md) for the documentation index.
 
 ---
 
