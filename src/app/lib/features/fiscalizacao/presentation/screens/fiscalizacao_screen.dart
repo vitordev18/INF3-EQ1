@@ -112,7 +112,7 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
     final status =
         registroAsync.whenOrNull(data: (r) => r?.status) ??
         StatusFiscalizacao.pendente;
-    final volumeTotalM3 = registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
+    final volumeTotalM3 = registroAsync.value?.volumeTotalM3 ?? 0.0;
     final corStatus = StatusPill.colorFor(status);
     final temVolume = volumeTotalM3 != 0.0;
 
@@ -161,41 +161,16 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
   }
 
   Widget _buildProdutoExtraPill(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.green,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => _adicionarProdutoExtra(context),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppSvgIcon(AppIcon.plus, size: 13, color: Colors.white),
-                SizedBox(width: 5),
-                Text(
-                  'Produto Extra',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return FloatingActionButton.extended(
+      onPressed: () => _adicionarProdutoExtra(context),
+      backgroundColor: AppColors.green,
+      icon: const Icon(Icons.add, color: AppColors.white, size: 20),
+      label: const Text(
+        'Produto Extra',
+        style: TextStyle(
+          color: AppColors.white,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
         ),
       ),
     );

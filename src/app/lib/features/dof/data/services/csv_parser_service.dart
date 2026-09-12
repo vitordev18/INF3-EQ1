@@ -20,11 +20,7 @@ class CsvParserService {
 
   static List<DofItemModel> _parseContent(String csvContent) {
     try {
-      final List<List<dynamic>> rows = const CsvToListConverter().convert(
-        csvContent,
-      );
-      print('[FISCALIZA] ⚙️ FASE 1: PARSING - CSV');
-      print('[FISCALIZA] ├─ Total de linhas: ${rows.length}');
+      final List<List<dynamic>> rows = Csv().decoder.convert(csvContent);
 
       if (rows.isEmpty) {
         throw Exception('Arquivo CSV vazio');
@@ -42,19 +38,14 @@ class CsvParserService {
       final headers = _normalizeHeaders(
         rows[0].map((h) => h.toString()).toList(),
       );
-      print('[FISCALIZA] ├─ Detectando cabeçalhos...');
-      for (int i = 0; i < headers.length; i++) {
-        print('[FISCALIZA] │  ✓ "${rows[0][i]}" → "${headers[i]}"');
-      }
+      for (int i = 0; i < headers.length; i++) {}
 
       bool hasRequiredColumns = _validateRequiredColumns(headers);
       if (!hasRequiredColumns) {
         throw Exception('Colunas obrigatórias não encontradas');
       }
-      print('[FISCALIZA] └─ ✅ Todas as colunas obrigatórias presentes');
 
       final items = <DofItemModel>[];
-      print('[FISCALIZA] ⚙️ FASE 2: EXTRAÇÃO DE DADOS');
 
       for (int i = 1; i < rows.length; i++) {
         try {
@@ -65,16 +56,11 @@ class CsvParserService {
 
           final item = _rowToItem(row, headers, i + 1);
           items.add(item);
-          print(
-            '[FISCALIZA] ├─ Linha ${i + 1}: Processando item ${item.numero}... ✓',
-          );
         } catch (e) {
-          print('[FISCALIZA] ├─ Linha ${i + 1}: Erro ao processar - $e');
           continue;
         }
       }
 
-      print('[FISCALIZA] └─ ✅ ${items.length} itens extraídos com sucesso');
       return items;
     } catch (e) {
       throw Exception('Erro ao fazer parse CSV: $e');

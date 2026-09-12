@@ -65,11 +65,11 @@ class MedidasState {
 }
 
 final medidasViewModelProvider =
-    AutoDisposeNotifierProvider<MedidasViewModel, MedidasState>(
+    NotifierProvider<MedidasViewModel, MedidasState>(
   MedidasViewModel.new,
 );
 
-class MedidasViewModel extends AutoDisposeNotifier<MedidasState> {
+class MedidasViewModel extends Notifier<MedidasState> {
   late FiscalizacaoLocalDatasource _ds;
   late DofItemModel _dofItem;
 

@@ -188,7 +188,7 @@ final sessoesRecentesProvider =
 /// lista com [sessaoAtivaProvider] para filtrar só os itens da fiscalização
 /// em andamento.
 final itensDaSessaoAtivaProvider = Provider<List<DofItemModel>>((ref) {
-  final sessaoAtiva = ref.watch(sessaoAtivaProvider).valueOrNull;
+  final sessaoAtiva = ref.watch(sessaoAtivaProvider).value;
   if (sessaoAtiva == null) return const [];
   final todosOsItens = ref.watch(parsedDofItemsProvider);
   return todosOsItens
@@ -261,13 +261,13 @@ final resumoSessaoAtivaProvider = FutureProvider<
 });
 
 final capturaNotifierProvider =
-    AutoDisposeNotifierProvider<CapturaNotifier, CapturaState>(
+    NotifierProvider<CapturaNotifier, CapturaState>(
   CapturaNotifier.new,
 );
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
-class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
+class CapturaNotifier extends Notifier<CapturaState> {
   late YoloService _yolo;
   static const int _maxUndoDepth = 20;
 

@@ -1,4 +1,5 @@
 import 'package:app/core/theme/app_colors.dart';
+import 'package:app/core/widgets/action_bottom_bar.dart';
 import 'package:app/core/widgets/app_icon.dart';
 import 'package:app/core/widgets/app_scaffold.dart';
 import 'package:app/features/dof/data/models/dof_item_model.dart';
@@ -47,19 +48,22 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sessao = ref.watch(sessaoAtivaProvider).valueOrNull;
+    final sessao = ref.watch(sessaoAtivaProvider).value;
     final itens = ref.watch(itensDaSessaoAtivaProvider);
     final resumo =
-        ref.watch(resumoSessaoAtivaProvider).valueOrNull ?? (0, 0, 0, 0);
+        ref.watch(resumoSessaoAtivaProvider).value ?? (0, 0, 0, 0);
     final pendentes = resumo.$4;
 
     return AppScaffold(
-      backgroundColor: AppColors.lightGrey,
       appBar: AppBar(
-        backgroundColor: AppColors.green,
+        centerTitle: true,
         title: const Text(
           'Concluir Fiscalização',
-          style: TextStyle(color: AppColors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(
+           color: AppColors.black,
+           fontWeight: FontWeight.bold,
+          fontSize: 19,
+         ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.chevron_left, color: AppColors.black),
@@ -97,7 +101,6 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
   Widget _buildStatsCard((int, int, int, int) resumo) {
     final (total, concluidos, excedentes, pendentes) = resumo;
     return Container(
-      color: AppColors.green,
       padding: const EdgeInsets.all(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
@@ -113,17 +116,19 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
             ),
           ],
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildStatColumn('Itens', '$total', _itensColor),
-            _buildStatDivider(),
-            _buildStatColumn('Concluídos', '$concluidos', AppColors.green),
-            _buildStatDivider(),
-            _buildStatColumn('Excedentes', '$excedentes', _excedenteColor),
-            _buildStatDivider(),
-            _buildStatColumn('Pendentes', '$pendentes', _pendenteColor),
-          ],
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildStatColumn('Itens', '$total', _itensColor),
+              _buildStatDivider(),
+              _buildStatColumn('Concluídos', '$concluidos', AppColors.green),
+              _buildStatDivider(),
+              _buildStatColumn('Excedentes', '$excedentes', _excedenteColor),
+              _buildStatDivider(),
+              _buildStatColumn('Pendentes', '$pendentes', _pendenteColor),
+            ],
+          ),
         ),
       ),
     );
@@ -134,7 +139,10 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: const TextStyle(fontSize: 8, color: _statLabelColor)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 8, color: _statLabelColor),
+          ),
           const SizedBox(height: 2),
           Text(
             value,
@@ -159,9 +167,9 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
   Widget _buildWarningBanner(int pendentes) {
     final intro = pendentes == 1
         ? '1 produto ainda não foi fiscalizado. Ao concluir, ficará '
-            'registrado como '
+              'registrado como '
         : '$pendentes produtos ainda não foram fiscalizados. Ao concluir, '
-            'ficarão registrados como ';
+              'ficarão registrados como ';
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Container(
@@ -214,7 +222,11 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
           for (int i = 0; i < itens.length; i++) ...[
             _buildItemRow(ref, itens[i]),
             if (i != itens.length - 1)
-              const Divider(height: 1, thickness: 1, color: AppColors.lightGrey),
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.lightGrey,
+              ),
           ],
         ],
       ),
@@ -223,7 +235,8 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
 
   Widget _buildItemRow(WidgetRef ref, DofItemModel item) {
     final registroAsync = ref.watch(registroPorItemProvider(item.id));
-    final status = registroAsync.whenOrNull(data: (r) => r?.status) ??
+    final status =
+        registroAsync.whenOrNull(data: (r) => r?.status) ??
         StatusFiscalizacao.pendente;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -250,42 +263,14 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
   }
 
   Widget _buildBottomBar(BuildContext context, WidgetRef ref, String sessaoId) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.lightGrey,
-        border: Border(top: BorderSide(color: Color(0xFFD8D8D8))),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      child: SizedBox(
-        height: 42,
-        child: Material(
-          color: AppColors.green,
-          borderRadius: BorderRadius.circular(9),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(9),
-            onTap: () => _concluir(context, ref, sessaoId),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const AppSvgIcon(
-                    AppIcon.checkCircle,
-                    size: 13,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 6),
-                  const Text(
-                    'Concluir e Salvar no Histórico',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    return ActionBottomBar(
+      onPressed: () => _concluir(context, ref, sessaoId),
+      child: const Text(
+        'Concluir Fiscalização',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );

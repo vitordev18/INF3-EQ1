@@ -13,15 +13,8 @@ import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_pr
 
 const Object _sentinel = Object();
 
-/// Resultado de [UploadDofViewModel.confirmarESalvar]. Sealed para que a tela
-/// seja obrigada (via switch exaustivo) a tratar o caso em que já existe uma
-/// fiscalização em andamento, em vez de simplesmente ignorá-la como o antigo
-/// contrato `Future<bool>` permitia.
 sealed class ConfirmarESalvarResultado {}
 
-/// Já existe uma sessão ativa (fiscalização em andamento). A tela deve
-/// perguntar ao usuário se quer encerrá-la e, em caso positivo, chamar
-/// `confirmarESalvar(encerrarAnterior: true)` novamente.
 class PrecisaConfirmarEncerramento extends ConfirmarESalvarResultado {
   final FiscalizacaoSessaoModel sessaoAtiva;
   PrecisaConfirmarEncerramento(this.sessaoAtiva);
@@ -64,25 +57,24 @@ class UploadDofState {
     bool? isError,
     List<DofItemModel>? parsedItems,
     String? madeireiraNome,
-  }) =>
-      UploadDofState(
-        isImporting: isImporting ?? this.isImporting,
-        isSaving: isSaving ?? this.isSaving,
-        statusMessage: statusMessage == _sentinel
-            ? this.statusMessage
-            : statusMessage as String?,
-        isError: isError ?? this.isError,
-        parsedItems: parsedItems ?? this.parsedItems,
-        madeireiraNome: madeireiraNome ?? this.madeireiraNome,
-      );
+  }) => UploadDofState(
+    isImporting: isImporting ?? this.isImporting,
+    isSaving: isSaving ?? this.isSaving,
+    statusMessage: statusMessage == _sentinel
+        ? this.statusMessage
+        : statusMessage as String?,
+    isError: isError ?? this.isError,
+    parsedItems: parsedItems ?? this.parsedItems,
+    madeireiraNome: madeireiraNome ?? this.madeireiraNome,
+  );
 }
 
 final uploadDofViewModelProvider =
-    AutoDisposeNotifierProvider<UploadDofViewModel, UploadDofState>(
-  UploadDofViewModel.new,
-);
+    NotifierProvider<UploadDofViewModel, UploadDofState>(
+      UploadDofViewModel.new,
+    );
 
-class UploadDofViewModel extends AutoDisposeNotifier<UploadDofState> {
+class UploadDofViewModel extends Notifier<UploadDofState> {
   @override
   UploadDofState build() => const UploadDofState();
 
@@ -100,13 +92,8 @@ class UploadDofViewModel extends AutoDisposeNotifier<UploadDofState> {
         allowedExtensions: ['xlsx', 'xls', 'csv'],
         dialogTitle: 'Selecione a planilha DOF',
       );
-
-      if (result != null && result.files.single.path != null) {
-        state = state.copyWith(
-          statusMessage: 'Fazendo parsing do arquivo...',
-        );
-
-        final file = File(result.files.single.path!);
+      if (result.single.path != null) {
+        final file = File(result.single.path!);
         final extension = p.extension(file.path).toLowerCase();
         List<DofItemModel> tempItems;
 
@@ -119,9 +106,7 @@ class UploadDofViewModel extends AutoDisposeNotifier<UploadDofState> {
         }
 
         if (tempItems.isEmpty) {
-          throw Exception(
-            'A planilha está vazia ou não contém dados válidos.',
-          );
+          throw Exception('A planilha está vazia ou não contém dados válidos.');
         }
 
         state = state.copyWith(
@@ -150,20 +135,12 @@ class UploadDofViewModel extends AutoDisposeNotifier<UploadDofState> {
     state = state.copyWith(madeireiraNome: value);
   }
 
-  /// Cria uma nova sessão de fiscalização para os itens já importados
-  /// ([state.parsedItems]) e os persiste carimbados com o `sessaoId` dessa
-  /// sessão — substitui o antigo `clearAll()` (que apagava a fiscalização
-  /// anterior a cada import).
-  ///
-  /// Se já existir uma sessão ativa, retorna [PrecisaConfirmarEncerramento]
-  /// em vez de salvar; a tela deve perguntar ao usuário e, se ele confirmar,
-  /// chamar este método de novo com `encerrarAnterior: true` para de fato
-  /// encerrar a sessão anterior (calculando seus snapshots finais) antes de
-  /// abrir a nova.
   Future<ConfirmarESalvarResultado> confirmarESalvar({
     bool encerrarAnterior = false,
   }) async {
-    final sessaoDatasource = ref.read(fiscalizacaoSessaoLocalDatasourceProvider);
+    final sessaoDatasource = ref.read(
+      fiscalizacaoSessaoLocalDatasourceProvider,
+    );
     final sessaoAtiva = await sessaoDatasource.getSessaoAtiva();
 
     if (sessaoAtiva != null && !encerrarAnterior) {

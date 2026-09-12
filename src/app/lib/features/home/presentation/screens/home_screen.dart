@@ -11,13 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Hub de Início: tela inicial pós-splash. Mostra o aviso de fiscalização em
-/// andamento (se houver), o CTA para iniciar uma nova fiscalização e a lista
-/// das últimas fiscalizações concluídas, além da navegação inferior flutuante
-/// (Início / Histórico).
-///
-/// Réplica pixel-a-pixel do "Hub de Início" em
-/// fiscaliza-plano-historico/index.html (linhas 317-405).
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
@@ -38,21 +31,11 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sessaoAtiva = ref.watch(sessaoAtivaProvider).valueOrNull;
-    final progresso = ref.watch(progressoSessaoAtivaProvider).valueOrNull;
+    final sessaoAtiva = ref.watch(sessaoAtivaProvider).value;
+    final progresso = ref.watch(progressoSessaoAtivaProvider).value;
     final sessoesRecentes =
-        ref.watch(sessoesRecentesProvider).valueOrNull ?? const [];
+        ref.watch(sessoesRecentesProvider).value ?? const [];
 
-    // Revertido 2026-09-04 (4ª vez): `bottomBar` (Scaffold.bottomNavigationBar)
-    // volta a causar tela em branco com o nav flutuando centralizado em
-    // emulador real, mesmo isolando a mudança (sem mexer em centralização/
-    // scroll) e descartando a hipótese de edge-to-edge. Nav em fluxo normal,
-    // mas agora com o mesmo truque de `Expanded` que `historico_screen.dart`
-    // já usava: o conteúdo scrollável fica dentro de um `Expanded`, então
-    // quando o conteúdo é curto (ex: lista vazia) ele ainda ocupa todo o
-    // espaço disponível e empurra o nav pro fim de verdade da tela, em vez de
-    // deixar o nav "boiando" logo depois do conteúdo com espaço em branco
-    // embaixo — ver [[fiscaliza-historico-plano]].
     return AppScaffold(
       backgroundColor: AppColors.white,
       body: Column(

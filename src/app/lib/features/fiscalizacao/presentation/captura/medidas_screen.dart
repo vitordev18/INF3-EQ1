@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:app/core/widgets/action_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -143,9 +144,10 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
             onPressed: _handleBackPress,
             iconSize: 30,
           ),
+          centerTitle: true,
           title: Text(
             'Medidas — Foto ${vmState.currentFotoIndex + 1}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
           ),
           backgroundColor: AppColors.green,
           foregroundColor: Colors.white,
@@ -683,39 +685,17 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
   }
 
   Widget _buildSaveButton(MedidasState vmState) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-      child: ElevatedButton(
-        onPressed: (vmState.emEdicao || vmState.isSaving)
+    return ActionBottomBar(
+      onPressed: (vmState.emEdicao || vmState.isSaving)
             ? null
             : _salvarEFechar,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.green,
-          disabledBackgroundColor: Colors.grey.shade200,
-          minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
+      child: const Text(
+        'Concluir Fiscalização',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
         ),
-        child: vmState.isSaving
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Text(
-                'Salvar Medidas da Foto',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                ),
-              ),
       ),
     );
   }

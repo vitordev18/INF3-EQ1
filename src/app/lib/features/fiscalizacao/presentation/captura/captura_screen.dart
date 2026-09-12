@@ -775,7 +775,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     final session = state.current;
     final totalCount = state.totalCount;
     final registroAsync = ref.watch(registroPorItemProvider(widget.dofItem.id));
-    final volumeTotalM3 = registroAsync.valueOrNull?.volumeTotalM3 ?? 0.0;
+    final volumeTotalM3 = registroAsync.value?.volumeTotalM3 ?? 0.0;
     final isOver = volumeTotalM3 > 0.0
         ? volumeTotalM3 > widget.dofItem.saldoTotal
         : false;
