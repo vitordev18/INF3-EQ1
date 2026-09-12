@@ -1,0 +1,32 @@
+import 'package:isar/isar.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
+
+import 'package:fiscaliza/features/fiscalizacao/data/models/medicao_grupo_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
+
+class IsarService {
+  late Future<Isar> db;
+
+  IsarService() {
+    db = openDB();
+  }
+
+  Future<Isar> openDB() async {
+    if (Isar.instanceNames.isEmpty) {
+      final dir = await getApplicationDocumentsDirectory();
+      return await Isar.open(
+        [
+          DofItemModelSchema,
+          FiscalizacaoRegistroModelSchema,
+          MedicaoGrupoModelSchema,
+          FiscalizacaoSessaoModelSchema,
+        ],
+        directory: dir.path,
+        inspector: true,
+      );
+    }
+    return Future.value(Isar.getInstance());
+  }
+}
