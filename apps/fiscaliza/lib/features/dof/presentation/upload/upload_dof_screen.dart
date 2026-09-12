@@ -51,6 +51,7 @@ class UploadDofScreen extends ConsumerWidget {
     final vm = ref.read(uploadDofViewModelProvider.notifier);
 
     return AppScaffold(
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         centerTitle: true,
         title: const Text(

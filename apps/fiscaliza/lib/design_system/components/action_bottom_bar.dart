@@ -21,9 +21,9 @@ class ActionBottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        border: const Border(
+      decoration: const BoxDecoration(
+        color:  Colors.white,
+        border:  Border(
           top: BorderSide(color: AppColors.lightGrey),
         ),
       ),

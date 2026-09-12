@@ -41,7 +41,7 @@ final sessoesRecentesProvider =
 });
 
 final itensDaSessaoAtivaProvider = Provider<List<DofItemModel>>((ref) {
-  final sessaoAtiva = ref.watch(sessaoAtivaProvider).valueOrNull;
+  final sessaoAtiva = ref.watch(sessaoAtivaProvider).value;
   if (sessaoAtiva == null) return const [];
   final todosOsItens = ref.watch(parsedDofItemsProvider);
   return todosOsItens

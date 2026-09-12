@@ -5,8 +5,6 @@ import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 
-import '../../presentation/upload/upload_dof_view_model.dart';
-
 class CsvParserService {
   static const _uuid = Uuid();
 
@@ -29,11 +27,10 @@ class CsvParserService {
 
       // O número do item é preservado como texto: é por ele que o fiscal casa
       // o item com o DOF em papel, e "001" não pode virar 1.
-      final List<List<dynamic>> rows = ConfirmarESalvarResultado(
-        eol: '\n',
-        shouldParseNumbers: false,
-      ).decoder.convert(normalizado);
-       if (rows.isEmpty) {
+      final List<List<dynamic>> rows = const CsvDecoder(
+        dynamicTyping: false,
+      ).convert(normalizado);
+      if (rows.isEmpty) {
         throw Exception('Arquivo CSV vazio');
       }
 
@@ -49,9 +46,9 @@ class CsvParserService {
       final headers = _normalizeHeaders(
         rows[0].map((h) => h.toString()).toList(),
       );
-      print('[FISCALIZA] ├─ Detectando cabeçalhos...');
+      AppLogger.info('[FISCALIZA] ├─ Detectando cabeçalhos...');
       for (int i = 0; i < headers.length; i++) {
-        print('[FISCALIZA] │  ✓ "${rows[0][i]}" → "${headers[i]}"');
+        AppLogger.info('[FISCALIZA] │  ✓ "${rows[0][i]}" → "${headers[i]}"');
       }
 
       final bool hasRequiredColumns = _validateRequiredColumns(headers);

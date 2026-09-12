@@ -12,8 +12,6 @@ import 'package:fiscaliza/features/dof/data/dof_providers.dart';
 import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
 import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_providers.dart';
 
-const Object _sentinel = Object();
-
 sealed class ConfirmarESalvarResultado {}
 
 class PrecisaConfirmarEncerramento extends ConfirmarESalvarResultado {
@@ -140,7 +138,7 @@ class UploadDofViewModel extends Notifier<UploadDofState> {
     bool encerrarAnterior = false,
   }) async {
     final sessaoDatasource = ref.read(
-      fiscalizacaoSessaoLocalDatasourceProvider,
+      fiscalizacaoSessaoRepositoryProvider,
     );
     final sessaoAtiva = await sessaoDatasource.getSessaoAtiva();
 

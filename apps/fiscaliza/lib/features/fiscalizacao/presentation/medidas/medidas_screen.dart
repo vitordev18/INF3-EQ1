@@ -1,7 +1,7 @@
 import 'package:fiscaliza/features/fiscalizacao/domain/perfil_peca.dart';
 import 'dart:async';
 
-import 'package:app/core/widgets/action_bottom_bar.dart';
+import 'package:fiscaliza/design_system/components/action_bottom_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 

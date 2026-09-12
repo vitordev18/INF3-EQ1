@@ -1,6 +1,6 @@
 import 'package:fiscaliza/app/router/app_routes.dart';
 import 'package:fiscaliza/design_system/theme/app_colors.dart';
-import 'package:app/core/widgets/action_bottom_bar.dart';
+import 'package:fiscaliza/design_system/components/action_bottom_bar.dart';
 import 'package:fiscaliza/design_system/components/app_icon.dart';
 import 'package:fiscaliza/design_system/components/app_scaffold.dart';
 import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';

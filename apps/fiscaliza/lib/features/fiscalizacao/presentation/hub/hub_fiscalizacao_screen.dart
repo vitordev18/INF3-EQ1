@@ -38,6 +38,7 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
     final itens = ref.watch(itensDaSessaoAtivaProvider);
 
     return AppScaffold(
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         centerTitle: true,
         title: const Text(

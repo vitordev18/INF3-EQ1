@@ -13,6 +13,7 @@ class CadastroScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return AppScaffold(
+      backgroundColor: AppColors.white,
       appBar: AppBar(
         title: const Text('Produto Extra'),
         leading: IconButton(
