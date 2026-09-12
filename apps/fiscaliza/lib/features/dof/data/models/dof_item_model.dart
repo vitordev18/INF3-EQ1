@@ -1,5 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:app/features/dof/domain/entities/dof_item.dart';
+import 'package:fiscaliza/features/dof/domain/entities/dof_item.dart';
 
 part 'dof_item_model.g.dart';
 
@@ -34,10 +34,7 @@ class DofItemModel implements DofItem {
   @override
   DateTime? criadoEm;
 
-  /// Vincula este item à fiscalização/lote (FiscalizacaoSessaoModel) em que
-  /// foi importado. Default '' (não `late`) de propósito: linhas gravadas
-  /// pelo schema anterior (sem este campo) precisam continuar deserializando
-  /// sem erro no Isar. '' é tratado como "sem sessão" (dado legado).
+  /// Vincula o item ao lote de fiscalização em que foi importado.
   String sessaoId;
 
   DofItemModel({
@@ -83,29 +80,6 @@ class DofItemModel implements DofItem {
       'criadoEm': criadoEm?.toIso8601String(),
       'sessaoId': sessaoId,
     };
-  }
-
-  factory DofItemModel.fromXmlElement(Map<String, dynamic> xmlData) {
-    return DofItemModel(
-      id: xmlData['id'] as String? ?? '',
-      numero: xmlData['numero'] as String? ?? '',
-      produto: xmlData['produto'] as String? ?? '',
-      especieCientifico: xmlData['especieCientifico'] as String? ?? '',
-      nomePopular: xmlData['nomePopular'] as String? ?? '',
-      saldoLivre: _parseDouble(xmlData['saldoLivre']),
-      saldoTotal: _parseDouble(xmlData['saldoTotal']),
-      unidade: xmlData['unidade'] as String? ?? 'm³',
-    );
-  }
-
-  static double _parseDouble(dynamic value) {
-    if (value == null) return 0.0;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.replaceAll(',', '.')) ?? 0.0;
-    }
-    return 0.0;
   }
 
   DofItemModel copyWith({
