@@ -1,20 +1,11 @@
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/core/widgets/app_icon.dart';
+import 'package:fiscaliza/app/router/app_routes.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
+import 'package:fiscaliza/design_system/components/app_icon.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Aba ativa no [FiscalizaBottomNav].
 enum FiscalizaNavTab { inicio, historico }
 
-/// Navegação inferior flutuante (pílula "Início / Histórico") usada em toda
-/// tela de nível superior do app (Hub de Início, Histórico, ...).
-///
-/// Extraído de `HomeScreen._buildNavFlutuante` para que a pílula não suma em
-/// telas que não sejam a Home — cada tela de nível superior deve incluir
-/// este widget passando a aba correspondente como [active], normalmente
-/// através do slot `bottomBar` do `AppScaffold` (que mapeia para
-/// `Scaffold.bottomNavigationBar`), e não via `Stack`/`Positioned` — essa
-/// alternativa foi tentada e descartada (ver [[fiscaliza-historico-plano]]).
 class FiscalizaBottomNav extends StatelessWidget {
   final FiscalizaNavTab active;
 
@@ -40,7 +31,7 @@ class FiscalizaBottomNav extends StatelessWidget {
             label: 'Início',
             active: active == FiscalizaNavTab.inicio,
             onTap: () {
-              if (active != FiscalizaNavTab.inicio) context.go('/home');
+              if (active != FiscalizaNavTab.inicio) context.go(AppRoutes.home);
             },
           ),
           const SizedBox(width: 30),
@@ -50,7 +41,7 @@ class FiscalizaBottomNav extends StatelessWidget {
             label: 'Histórico',
             active: active == FiscalizaNavTab.historico,
             onTap: () {
-              if (active != FiscalizaNavTab.historico) context.go('/historico');
+              if (active != FiscalizaNavTab.historico) context.go(AppRoutes.historico);
             },
           ),         
         ],

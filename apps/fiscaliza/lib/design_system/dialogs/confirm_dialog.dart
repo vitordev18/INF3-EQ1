@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
 
 enum ConfirmDialogVariant { warning, danger, info }
 
@@ -112,10 +112,6 @@ Future<bool> showConfirmDialog(
   return result == true;
 }
 
-// ---------------------------------------------------------------------------
-// Internals
-// ---------------------------------------------------------------------------
-
 class _VariantColors {
   final Color iconBackground;
   final Color iconForeground;
@@ -131,20 +127,20 @@ class _VariantColors {
 _VariantColors _variantColors(ConfirmDialogVariant variant) {
   switch (variant) {
     case ConfirmDialogVariant.danger:
-      return _VariantColors(
-        iconBackground: const Color(0xFFFFEBEB),
-        iconForeground: const Color(0xFFE24B4A),
-        buttonBackground: const Color(0xFFE24B4A),
+      return const _VariantColors(
+        iconBackground: Color(0xFFFFEBEB),
+        iconForeground: Color(0xFFE24B4A),
+        buttonBackground: Color(0xFFE24B4A),
       );
     case ConfirmDialogVariant.warning:
-      return _VariantColors(
-        iconBackground: const Color(0xFFFFF3E0),
-        iconForeground: const Color(0xFFF57C00),
-        buttonBackground: const Color(0xFFF57C00),
+      return const _VariantColors(
+        iconBackground: Color(0xFFFFF3E0),
+        iconForeground: Color(0xFFF57C00),
+        buttonBackground: Color(0xFFF57C00),
       );
     case ConfirmDialogVariant.info:
-      return _VariantColors(
-        iconBackground: const Color(0xFFE8F5E9),
+      return const _VariantColors(
+        iconBackground: Color(0xFFE8F5E9),
         iconForeground: AppColors.green,
         buttonBackground: AppColors.green,
       );

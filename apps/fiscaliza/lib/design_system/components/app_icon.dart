@@ -1,12 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-/// Ícones em traço (estilo Lucide/Feather) extraídos 1:1 do mockup
-/// `fiscaliza-plano-historico`, como assets SVG locais em `assets/icons/`.
-///
-/// Use [AppSvgIcon] em vez de `Icon(Icons.*)` em qualquer tela que precise
-/// bater visualmente com o mockup — os `Icons.*` do Material são preenchidos
-/// e não reproduzem o traço fino do design de referência.
 enum AppIcon {
   back('assets/icons/back.svg'),
   chevronRight('assets/icons/chevron_right.svg'),
@@ -22,11 +16,6 @@ enum AppIcon {
   const AppIcon(this.assetPath);
 }
 
-/// Renderiza um [AppIcon] com tamanho e cor consistentes.
-///
-/// O SVG de origem é traçado em preto (#000000); a cor real é aplicada em
-/// runtime via [ColorFilter] (BlendMode.srcIn), então qualquer [color] pode
-/// ser usada sem precisar de uma variante de arquivo por cor.
 class AppSvgIcon extends StatelessWidget {
   final AppIcon icon;
   final double size;

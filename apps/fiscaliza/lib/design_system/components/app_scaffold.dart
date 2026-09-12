@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Scaffold padrão do app: insere a área segura de baixo (barra de gestos)
-/// sempre, e a de cima só quando não há AppBar (que já se protege sozinha).
 class AppScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final Widget body;
