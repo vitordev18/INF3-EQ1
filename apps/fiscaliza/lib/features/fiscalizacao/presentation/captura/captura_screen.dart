@@ -1,3 +1,8 @@
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/widgets/thumbnail_strip.dart';
+import 'package:fiscaliza/design_system/components/auto_dismiss_hint.dart';
+import 'package:fiscaliza/design_system/painters/region_selector_painter.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/widgets/header_card.dart';
+import 'package:fiscaliza/core/ml/recognition.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' show min;
@@ -7,14 +12,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/core/services/yolo_service.dart';
-import 'package:app/core/utils/dialogs.dart';
-import 'package:app/core/widgets/app_scaffold.dart';
-import 'package:app/core/widgets/box_painter.dart';
-import 'package:app/core/widgets/upload_area.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
+import 'package:fiscaliza/design_system/dialogs/confirm_dialog.dart';
+import 'package:fiscaliza/design_system/components/app_scaffold.dart';
+import 'package:fiscaliza/design_system/painters/bounding_box_painter.dart';
+import 'package:fiscaliza/design_system/components/upload_area.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_providers.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_state.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_view_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/foto_session.dart';
 
 class CapturaScreen extends ConsumerStatefulWidget {
   final DofItemModel dofItem;
@@ -25,7 +32,6 @@ class CapturaScreen extends ConsumerStatefulWidget {
   ConsumerState<CapturaScreen> createState() => _CapturaScreenState();
 }
 
-/// Which part of a saved region a resize gesture grabbed.
 enum _RegionHandle {
   topLeft,
   topRight,
@@ -37,34 +43,21 @@ enum _RegionHandle {
   right,
 }
 
-/// What the current region-mode pan gesture is doing.
 enum _RegionDragKind { creating, resizing, moving }
 
-/// Smallest allowed region width/height (fraction of image size), used both
-/// to discard accidental taps when creating a region and to stop a
-/// resize/move gesture from collapsing or inverting a region.
 const double _kMinRegionSize = 0.02;
 
-/// Touch tolerance (in widget pixels) for grabbing a corner/edge handle.
 const double _kRegionHandleTouchRadius = 18.0;
 
-/// Diameter of the trash-can drop target shown while an existing region is
-/// being dragged (moved), and how far its center sits above the bottom edge
-/// of the image. Kept as widget-pixel constants (not fractions) since the
-/// icon has a fixed visual size regardless of image/zoom.
 const double _kTrashIconDiameter = 56.0;
 const double _kTrashIconBottomMargin = 24.0;
 
-/// How close the finger must be to the trash icon's center for a
-/// drag-to-delete drop to count. Deliberately more generous than the visual
-/// icon radius so it's easy to hit without precise aim.
 const double _kTrashHitRadius = 42.0;
 
 class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   final _transformController = TransformationController();
   final _picker = ImagePicker();
 
-  // Per-frame drag state kept local to avoid notifier rebuilds
   int? _draggingCircleIndex;
   Recognition? _draggingOriginalDetection;
   Offset? _draggingCenterOverride;
@@ -72,41 +65,23 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   Size? _currentWidgetSize;
   bool _hasExistingSession = false;
 
-  // Region resize/move drag state (kept local, same reasoning as above).
   _RegionDragKind? _regionDragKind;
-  // "creating": fixed anchor point the rect is drawn from.
-  // "moving": pointer position at gesture start (used to compute a delta).
-  // "resizing": unused (the fixed reference is the opposite corner/edge of
-  // _regionOriginalRect, derived from _regionActiveHandle instead).
   Offset? _regionStartPoint;
-  Rect? _regionOriginalRect; // rect snapshot at gesture start, fraction space
-  _RegionHandle? _regionActiveHandle; // grabbed handle, only for "resizing"
+  Rect? _regionOriginalRect;
+  _RegionHandle? _regionActiveHandle;
 
-  // True while a "moving" drag's current finger position is hovering over
-  // the trash-can drop target. Only meaningful while
-  // _regionDragKind == _RegionDragKind.moving; drives both the trash icon's
-  // highlighted look and whether releasing deletes the region instead of
-  // committing the move.
   bool _overTrashZone = false;
 
-  // How many fingers are currently touching the photo. Tracked via raw
-  // Listener callbacks (see _onPointerDown/_onPointerMove/_onPointerUp
-  // below) instead of GestureDetector's onPan* callbacks, because a
-  // PanGestureRecognizer living inside the same widget tree as
-  // InteractiveViewer's internal scale recognizer competes for the gesture
-  // arena and unpredictably blocks two-finger pinch-to-zoom. Raw Listener
-  // events never enter the arena, so they can never interfere with
-  // InteractiveViewer's own pinch/pan handling.
   int _activePointerCount = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final notifier = ref.read(capturaNotifierProvider.notifier);
+      final notifier = ref.read(capturaViewModelProvider.notifier);
       await notifier.initModel();
 
-      final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+      final ds = ref.read(fiscalizacaoRepositoryProvider);
       final existing = await ds.getByDofItemId(widget.dofItem.id);
       if (existing != null && mounted) {
         setState(() => _hasExistingSession = true);
@@ -144,7 +119,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
 
   int? _hitTestCircle(Offset localPosition, {double extraPadding = 16.0}) {
     if (_currentWidgetSize == null) return null;
-    final session = ref.read(capturaNotifierProvider).current;
+    final session = ref.read(capturaViewModelProvider).current;
     if (session == null) return null;
     final results = session.detections;
     for (int i = results.length - 1; i >= 0; i--) {
@@ -164,8 +139,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     return null;
   }
 
-  /// Returns the handle of [rectPx] (already in widget-pixel space) that is
-  /// within [tolerance] pixels of [point], or null if none is close enough.
   _RegionHandle? _handleNear(Rect rectPx, Offset point, double tolerance) {
     final candidates = <_RegionHandle, Offset>{
       _RegionHandle.topLeft: Offset(rectPx.left, rectPx.top),
@@ -189,9 +162,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     return best;
   }
 
-  /// Hit-tests the 8 handles of every saved region (topmost/last-added first)
-  /// against [localPosition]. Returns the region index and grabbed handle,
-  /// or null if the touch wasn't close enough to any handle.
   ({int index, _RegionHandle handle})? _hitTestRegionHandle(
     Offset localPosition,
     List<Rect> savedRegions,
@@ -215,9 +185,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     return null;
   }
 
-  /// Hit-tests the interior of every saved region (topmost/last-added first)
-  /// against [localPosition], for the "move whole region" gesture. Assumes
-  /// handles were already checked (and missed) by the caller.
   int? _hitTestRegionInterior(
     Offset localPosition,
     List<Rect> savedRegions,
@@ -247,7 +214,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     if (picked == null || !mounted) return;
     _transformController.value = Matrix4.identity();
     await ref
-        .read(capturaNotifierProvider.notifier)
+        .read(capturaViewModelProvider.notifier)
         .addPhoto(File(picked.path));
   }
 
@@ -281,9 +248,9 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   Future<void> _saveAndPop() async {
-    final state = ref.read(capturaNotifierProvider);
+    final state = ref.read(capturaViewModelProvider);
 
-    final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    final ds = ref.read(fiscalizacaoRepositoryProvider);
     final totalMedido = await ds.getTotalMedidoByDofItem(widget.dofItem.id);
     final totalContado = state.totalCount;
 
@@ -302,7 +269,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     }
 
     await ref
-        .read(capturaNotifierProvider.notifier)
+        .read(capturaViewModelProvider.notifier)
         .saveCaptura(widget.dofItem, ds);
     if (!mounted) return;
     ref.invalidate(registroPorItemProvider(widget.dofItem.id));
@@ -310,7 +277,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   Future<void> _handleBackPress() async {
-    final hasChanges = ref.read(capturaNotifierProvider).isDirty;
+    final hasChanges = ref.read(capturaViewModelProvider).isDirty;
     if (!hasChanges) {
       Navigator.of(context).pop();
       return;
@@ -346,11 +313,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    final ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    final ds = ref.read(fiscalizacaoRepositoryProvider);
     await ref
-        .read(capturaNotifierProvider.notifier)
+        .read(capturaViewModelProvider.notifier)
         .removePhotoAndCleanup(index, widget.dofItem.id, ds);
-    final totalCount = ref.read(capturaNotifierProvider).totalCount;
+    final totalCount = ref.read(capturaViewModelProvider).totalCount;
     await ds.recalcularEPersistirVolume(widget.dofItem, totalCount);
     if (mounted) ref.invalidate(registroPorItemProvider(widget.dofItem.id));
   }
@@ -378,13 +345,12 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     BoxConstraints constraints,
     CapturaState state,
   ) {
-    final notifier = ref.read(capturaNotifierProvider.notifier);
+    final notifier = ref.read(capturaViewModelProvider.notifier);
     final session = state.current!;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
       final widgetSize = Size(constraints.maxWidth, constraints.maxHeight);
 
-      // 1) Did we grab a handle of an already-saved region? -> resize.
       final handleHit = _hitTestRegionHandle(
         localPosition,
         session.savedRegions,
@@ -403,8 +369,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
         return;
       }
 
-      // 2) Did we tap inside an already-saved region (not on a handle)?
-      //    -> move the whole region.
       final interiorHit = _hitTestRegionInterior(
         localPosition,
         session.savedRegions,
@@ -426,10 +390,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
         return;
       }
 
-      // 3) Otherwise, start drawing a brand-new region anchored at the
-      //    touch point (the anchor is fixed for the whole gesture, unlike
-      //    the previous implementation which re-derived it from the
-      //    previous frame's already-expanded rect).
       final anchor = Offset(
         localPosition.dx / constraints.maxWidth,
         localPosition.dy / constraints.maxHeight,
@@ -462,16 +422,10 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     BoxConstraints constraints,
     CapturaState state,
   ) {
-    final notifier = ref.read(capturaNotifierProvider.notifier);
+    final notifier = ref.read(capturaViewModelProvider.notifier);
     final session = state.current!;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
-      // Current pointer position, fraction space, clamped to the image
-      // bounds. Every branch below computes the new rect from a FIXED
-      // reference (an anchor point or the original rect snapshot) plus
-      // this current position — never by folding the previous frame's
-      // already-updated rect, which is what made the old implementation
-      // only ever grow (dragging back past a point wouldn't shrink it).
       final cur = Offset(
         (localPosition.dx / constraints.maxWidth).clamp(0.0, 1.0),
         (localPosition.dy / constraints.maxHeight).clamp(0.0, 1.0),
@@ -512,12 +466,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     }
   }
 
-  /// Recomputes [original] after dragging [handle] to [cur] (fraction
-  /// space). The side(s) the handle owns move to [cur]; every other side
-  /// stays exactly at its original position (the "fixed anchor"). Each
-  /// moving side is clamped against its *original* opposite side so the
-  /// rect can never invert or shrink below [_kMinRegionSize] while
-  /// dragging.
   Rect _resizedRect(Rect original, _RegionHandle handle, Offset cur) {
     double left = original.left;
     double top = original.top;
@@ -549,9 +497,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     return Rect.fromLTRB(left, top, right, bottom);
   }
 
-  /// Translates [original] by [delta] (fraction space), clamped so the
-  /// moved rect stays fully within the 0..1 image bounds without changing
-  /// its size.
   Rect _movedRect(Rect original, Offset delta) {
     final clampedDx = delta.dx.clamp(-original.left, 1.0 - original.right);
     final clampedDy = delta.dy.clamp(-original.top, 1.0 - original.bottom);
@@ -563,8 +508,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     );
   }
 
-  /// Whether [localPosition] (widget-pixel space) is close enough to the
-  /// trash-can drop target's center to count as "dropped on the trash".
   bool _isOverTrash(Offset localPosition, Size widgetSize) {
     final trashCenter = Offset(
       widgetSize.width / 2,
@@ -574,22 +517,15 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   void _handlePanEnd(CapturaState state) {
-    final notifier = ref.read(capturaNotifierProvider.notifier);
+    final notifier = ref.read(capturaViewModelProvider.notifier);
     final session = state.current!;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode) {
       final dr = state.draggingRegion;
       final kind = _regionDragKind;
       if (kind == _RegionDragKind.moving && _overTrashZone && dr != null) {
-        // Released on the trash target while moving an already-saved
-        // region: discard it (and any detections inside it) instead of
-        // committing the move.
         notifier.discardDraggedRegion(dr);
       } else {
-        // Resizing/moving always commit the (already saved) region back —
-        // its size was clamped to _kMinRegionSize throughout the drag, so
-        // it can never end up "too small". Creating a brand new region
-        // still discards accidental taps/micro-drags, same as before.
         final shouldCommit = dr != null &&
             (kind == _RegionDragKind.resizing ||
                 kind == _RegionDragKind.moving ||
@@ -635,13 +571,8 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     }
   }
 
-  /// Handles the gesture being interrupted before onPanEnd fires (e.g. the
-  /// OS steals the pointer for an edge-swipe). If we had picked up an
-  /// existing region to resize/move it, put it back exactly as it was —
-  /// silently losing an already-saved region because the gesture got
-  /// cancelled would be far worse than just ignoring the interrupted edit.
   void _handlePanCancel(CapturaState state) {
-    final notifier = ref.read(capturaNotifierProvider.notifier);
+    final notifier = ref.read(capturaViewModelProvider.notifier);
     final session = state.current;
     if (session == null) return;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
@@ -671,13 +602,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     }
   }
 
-  // --- Raw pointer routing (region/edit drag vs. pinch-to-zoom) ---
-  //
-  // These wrap _handlePanStart/_handlePanUpdate/_handlePanEnd/_handlePanCancel
-  // (which contain all the actual drag/resize/move logic, unchanged) and are
-  // wired to a Listener instead of GestureDetector's onPan* callbacks. See
-  // the comment on _activePointerCount for why.
-
   void _onPointerDown(
     PointerDownEvent event,
     BoxConstraints constraints,
@@ -692,11 +616,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
         _handlePanStart(event.localPosition, constraints, state);
       }
     } else {
-      // A second finger just joined: this is now a pinch-to-zoom gesture,
-      // not a single-finger drag. Cancel whatever single-finger
-      // resize/move/detection-drag was in progress (restoring it exactly
-      // as it was, same as an OS-interrupted gesture) so InteractiveViewer's
-      // own scale recognizer is free to handle both fingers.
       _handlePanCancel(state);
     }
   }
@@ -706,20 +625,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
     BoxConstraints constraints,
     CapturaState state,
   ) {
-    // Only drive our own drag logic while exactly one finger is down. With
-    // 0 fingers there's nothing to update; with 2+ fingers this is a pinch
-    // and _onPointerDown already cancelled any single-finger drag above.
     if (_activePointerCount != 1) return;
     final session = state.current;
     if (session == null) return;
     final inRegionMode = state.isRegionMode || session.awaitingRegionSelection;
     if (inRegionMode || state.isEditMode) {
-      // Use localDelta (not delta): delta is in raw device/global pixels,
-      // while localDelta is transformed into this widget's local coordinate
-      // space — the same space localPosition and constraints.maxWidth/
-      // maxHeight are already in. Without this, dragging a region handle or
-      // detection circle would move too fast/slow whenever the photo is
-      // zoomed in via InteractiveViewer's pinch-to-zoom.
       _handlePanUpdate(
         event.localPosition,
         event.localDelta,
@@ -731,11 +641,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
 
   void _onPointerUp(PointerUpEvent event, CapturaState state) {
     if (_activePointerCount > 0) _activePointerCount--;
-    // Only commit when the last finger of the sequence lifted. If this was
-    // one finger lifting out of a multi-touch pinch, the drag was already
-    // cancelled (not started) when the 2nd finger touched down, so there's
-    // nothing to commit — and the remaining finger(s) shouldn't suddenly
-    // resume a drag either (_handlePanUpdate is a no-op with no drag state).
     if (_activePointerCount == 0) {
       _handlePanEnd(state);
     }
@@ -747,7 +652,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
   }
 
   void _handleEditTap(Offset localPosition, CapturaState state) {
-    final notifier = ref.read(capturaNotifierProvider.notifier);
+    final notifier = ref.read(capturaViewModelProvider.notifier);
     final hitIdx = _hitTestCircle(localPosition, extraPadding: 0);
     if (hitIdx != null) {
       notifier.removeDetection(state.currentIndex, hitIdx);
@@ -771,7 +676,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(capturaNotifierProvider);
+    final state = ref.watch(capturaViewModelProvider);
     final session = state.current;
     final totalCount = state.totalCount;
     final registroAsync = ref.watch(registroPorItemProvider(widget.dofItem.id));
@@ -802,6 +707,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
           elevation: 0,
           scrolledUnderElevation: 0,
           leading: IconButton(
+            tooltip: 'Voltar',
             icon: const Icon(Icons.chevron_left, color: AppColors.black),
             onPressed: _handleBackPress,
             iconSize: 30,
@@ -811,13 +717,12 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
           children: [
             Column(
               children: [
-                _HeaderCard(
+                HeaderCard(
                   dofItem: widget.dofItem,
                   isOver: isOver,
                   volumeTotalM3: volumeTotalM3,
                 ),
 
-                // ── Image area ──────────────────────────────────────────────
                 Expanded(
                   child: session == null
                       ? Padding(
@@ -933,12 +838,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                     inRegionMode)
                                                   CustomPaint(
                                                     painter:
-                                                        _RegionSelectorPainter(
+                                                        RegionSelectorPainter(
                                                           session.savedRegions,
                                                           state.draggingRegion,
                                                         ),
                                                   ),
-                                                // Region instruction chip
                                                 if (inRegionMode &&
                                                     !state.isProcessing)
                                                   Positioned(
@@ -946,7 +850,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                     left: 0,
                                                     right: 0,
                                                     child: Center(
-                                                      child: _AutoDismissHint(
+                                                      child: AutoDismissHint(
                                                         child: Container(
                                                           padding:
                                                               const EdgeInsets.symmetric(
@@ -1010,18 +914,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                       ),
                                                     ),
                                                   ),
-                                                // Trash drop target: to
-                                                // delete a saved region, the
-                                                // user long-presses/drags it
-                                                // (the existing "move"
-                                                // gesture) down onto this
-                                                // icon, which slides up from
-                                                // the bottom edge only while
-                                                // such a drag is in
-                                                // progress, and highlights
-                                                // once the finger is close
-                                                // enough to it to count as a
-                                                // drop.
                                                 if (inRegionMode)
                                                   Positioned(
                                                     bottom: 0,
@@ -1091,14 +983,13 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                       ),
                                                     ),
                                                   ),
-                                                // Edit mode chip
                                                 if (state.isEditMode)
                                                   Positioned(
                                                     bottom: 8,
                                                     left: 0,
                                                     right: 0,
                                                     child: Center(
-                                                      child: _AutoDismissHint(
+                                                      child: AutoDismissHint(
                                                         child: Container(
                                                           padding:
                                                               const EdgeInsets.symmetric(
@@ -1138,7 +1029,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                                       ),
                                                     ),
                                                   ),
-                                                // Loading overlay
                                                 if (state.isProcessing)
                                                   Container(
                                                     color: Colors.black45,
@@ -1172,7 +1062,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                   ),
                                 ),
                               ),
-                              // Left navigation arrow
                               if (state.currentIndex > 0)
                                 Positioned(
                                   left: 4,
@@ -1183,7 +1072,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                       onTap: () {
                                         ref
                                             .read(
-                                              capturaNotifierProvider.notifier,
+                                              capturaViewModelProvider.notifier,
                                             )
                                             .navigateTo(state.currentIndex - 1);
                                         _transformController.value =
@@ -1207,7 +1096,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                     ),
                                   ),
                                 ),
-                              // Right navigation arrow
                               if (state.currentIndex < state.fotos.length - 1)
                                 Positioned(
                                   right: 4,
@@ -1218,7 +1106,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                       onTap: () {
                                         ref
                                             .read(
-                                              capturaNotifierProvider.notifier,
+                                              capturaViewModelProvider.notifier,
                                             )
                                             .navigateTo(state.currentIndex + 1);
                                         _transformController.value =
@@ -1247,10 +1135,18 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                         ),
                 ),
 
-                // ── Thumbnail strip ─────────────────────────────────────────
-                if (state.fotos.isNotEmpty) _buildThumbnailStrip(state),
+                if (state.fotos.isNotEmpty)
+                  ThumbnailStrip(
+                    fotos: state.fotos,
+                    currentIndex: state.currentIndex,
+                    onAdicionar: _showImageSourceSheet,
+                    onSelecionar: (i) {
+                      ref.read(capturaViewModelProvider.notifier).navigateTo(i);
+                      _transformController.value = Matrix4.identity();
+                    },
+                    onRemover: _confirmDeletePhoto,
+                  ),
 
-                // ── Detection card ──────────────────────────────────────────
                 if (session != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -1306,13 +1202,11 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                     ),
                   ),
 
-                // ── Bottom buttons ──────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Detectar button
                       if (session != null &&
                           (session.awaitingRegionSelection ||
                               state.isRegionMode) &&
@@ -1330,7 +1224,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                   Expanded(
                                     child: OutlinedButton(
                                       onPressed: () => ref
-                                          .read(capturaNotifierProvider.notifier)
+                                          .read(capturaViewModelProvider.notifier)
                                           .cancelRegionMode(),
                                       style: OutlinedButton.styleFrom(
                                         side: BorderSide(
@@ -1356,7 +1250,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                 Expanded(
                                   child: ElevatedButton.icon(
                                     onPressed: () => ref
-                                        .read(capturaNotifierProvider.notifier)
+                                        .read(capturaViewModelProvider.notifier)
                                         .confirmRegionAndProcess(),
                                     icon: const Icon(Icons.check),
                                     label: Text(
@@ -1382,7 +1276,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                           ),
                         ),
 
-                      // Ghost toolbar
                       if (session != null &&
                           !session.awaitingRegionSelection &&
                           !state.isRegionMode)
@@ -1393,7 +1286,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: () => ref
-                                      .read(capturaNotifierProvider.notifier)
+                                      .read(capturaViewModelProvider.notifier)
                                       .setIsRegionMode(!state.isRegionMode),
                                   icon: const Icon(Icons.crop_free, size: 18),
                                   label: const Text('Área'),
@@ -1406,7 +1299,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: () => ref
-                                      .read(capturaNotifierProvider.notifier)
+                                      .read(capturaViewModelProvider.notifier)
                                       .toggleEditMode(),
                                   icon: const Icon(Icons.edit, size: 18),
                                   label: const Text('Editar'),
@@ -1440,7 +1333,7 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                                     child: OutlinedButton(
                                       onPressed: () => ref
                                           .read(
-                                            capturaNotifierProvider.notifier,
+                                            capturaViewModelProvider.notifier,
                                           )
                                           .undo(),
                                       style: OutlinedButton.styleFrom(
@@ -1464,7 +1357,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
                           ),
                         ),
 
-                      // Save button
                       if (state.fotos.isNotEmpty)
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -1533,262 +1425,6 @@ class _CapturaScreenState extends ConsumerState<CapturaScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnailStrip(CapturaState state) {
-    return SizedBox(
-      height: 48,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: state.fotos.length + 1,
-        itemBuilder: (context, i) {
-          if (i == state.fotos.length) {
-            return Padding(
-              padding: const EdgeInsets.only(left: 4),
-              child: GestureDetector(
-                onTap: _showImageSourceSheet,
-                child: Container(
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: AppColors.green.withValues(alpha: 0.75),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 20),
-                ),
-              ),
-            );
-          }
-          final isActive = i == state.currentIndex;
-          final count = state.fotos[i].count;
-          return Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: GestureDetector(
-              onTap: () {
-                ref.read(capturaNotifierProvider.notifier).navigateTo(i);
-                _transformController.value = Matrix4.identity();
-              },
-              onLongPress: () => _confirmDeletePhoto(i),
-              child: Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  Container(
-                    width: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: isActive
-                          ? Border.all(color: AppColors.green, width: 2)
-                          : Border.all(color: Colors.grey.shade500, width: 1),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(isActive ? 2 : 3),
-                      child: Image.file(
-                        state.fotos[i].imageFile,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.all(2),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 3,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: AppColors.green,
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-// ─── Header Card ──────────────────────────────────────────────────────────────
-
-class _HeaderCard extends StatelessWidget {
-  final DofItemModel dofItem;
-  final bool isOver;
-  final double volumeTotalM3;
-
-  const _HeaderCard({
-    required this.dofItem,
-    required this.isOver,
-    this.volumeTotalM3 = 0.0,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final showVolume = volumeTotalM3 > 0.0;
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  dofItem.produto,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${dofItem.especieCientifico} (${dofItem.nomePopular})',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Saldo: ${dofItem.saldoTotal.toStringAsFixed(2)} ${dofItem.unidade}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showVolume) ...[
-                Text(
-                  'Volume',
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                ),
-                Text(
-                  '${volumeTotalM3.toStringAsFixed(3)} m³',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isOver ? Colors.red.shade700 : AppColors.green,
-                  ),
-                ),
-              ] else
-                Text(''),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Region Selector Painter ──────────────────────────────────────────────────
-
-class _RegionSelectorPainter extends CustomPainter {
-  final List<Rect> savedRegions;
-  final Rect? draggingRegion;
-
-  _RegionSelectorPainter(this.savedRegions, this.draggingRegion);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final allRegions = [...savedRegions, ?draggingRegion];
-
-    for (int i = 0; i < allRegions.length; i++) {
-      final region = allRegions[i];
-      final rect = Rect.fromLTRB(
-        region.left * size.width,
-        region.top * size.height,
-        region.right * size.width,
-        region.bottom * size.height,
-      );
-
-      final isSaved = i < savedRegions.length;
-      final borderPaint = Paint()
-        ..color = isSaved
-            ? AppColors.green
-            : AppColors.green.withValues(alpha: 0.7)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = isSaved ? 2.5 : 1.5;
-
-      canvas.drawRect(rect, borderPaint);
-
-      final handlePaint = Paint()..color = Colors.white;
-      const handleRadius = 5.0;
-      for (final corner in [
-        // Corners
-        Offset(rect.left, rect.top),
-        Offset(rect.right, rect.top),
-        Offset(rect.left, rect.bottom),
-        Offset(rect.right, rect.bottom),
-        // Edge midpoints
-        Offset(rect.center.dx, rect.top),
-        Offset(rect.center.dx, rect.bottom),
-        Offset(rect.left, rect.center.dy),
-        Offset(rect.right, rect.center.dy),
-      ]) {
-        canvas.drawCircle(corner, handleRadius, handlePaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RegionSelectorPainter oldDelegate) =>
-      oldDelegate.savedRegions != savedRegions ||
-      oldDelegate.draggingRegion != draggingRegion;
-}
-
-/// Fades out and stops blocking touches a fixed duration after being mounted.
-/// Re-arms automatically whenever the caller's `if` condition remounts it.
-class _AutoDismissHint extends StatefulWidget {
-  final Widget child;
-
-  const _AutoDismissHint({required this.child});
-
-  @override
-  State<_AutoDismissHint> createState() => _AutoDismissHintState();
-}
-
-class _AutoDismissHintState extends State<_AutoDismissHint> {
-  static const _duration = Duration(seconds: 3);
-  bool _visible = true;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer(_duration, () {
-      if (mounted) setState(() => _visible = false);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: AnimatedOpacity(
-        opacity: _visible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 250),
-        child: widget.child,
       ),
     );
   }

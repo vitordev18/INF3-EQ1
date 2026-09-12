@@ -1,21 +1,17 @@
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/core/widgets/app_icon.dart';
-import 'package:app/core/widgets/app_scaffold.dart';
-import 'package:app/core/widgets/action_bottom_bar.dart';
-import 'package:app/core/widgets/fiscaliza_list_tile.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
-import 'package:app/features/fiscalizacao/presentation/widgets/status_pill.dart';
+import 'package:fiscaliza/app/router/app_routes.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
+import 'package:fiscaliza/design_system/components/app_icon.dart';
+import 'package:fiscaliza/design_system/components/app_scaffold.dart';
+import 'package:fiscaliza/design_system/components/action_bottom_bar.dart';
+import 'package:fiscaliza/design_system/components/fiscaliza_list_tile.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_providers.dart';
+import 'package:fiscaliza/design_system/components/status_pill.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Hub de Fiscalização: lista os produtos (`DofItemModel`) da sessão ativa
-/// (ver [itensDaSessaoAtivaProvider]) para o fiscal escolher qual fotografar
-/// a seguir, com atalhos para adicionar um produto extra e para concluir a
-/// fiscalização inteira. Réplica fiel de `FiscalizacaoHubScreen` em
-/// `fiscaliza-plano-historico/index.html`.
 class FiscalizacaoHubScreen extends ConsumerWidget {
   const FiscalizacaoHubScreen({super.key});
 
@@ -26,15 +22,15 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
   String _formatNum3(double v) => v.toStringAsFixed(3).replaceAll('.', ',');
 
   void _iniciarFiscalizacao(BuildContext context, DofItemModel dofItem) {
-    context.push('/fiscalizacao/captura', extra: dofItem);
+    context.push(AppRoutes.captura, extra: dofItem);
   }
 
   void _adicionarProdutoExtra(BuildContext context) {
-    context.push('/fiscalizacao/cadastro');
+    context.push(AppRoutes.cadastro);
   }
 
   void _concluirFiscalizacao(BuildContext context) {
-    context.push('/fiscalizacao/concluir');
+    context.push(AppRoutes.concluir);
   }
 
   @override
@@ -53,8 +49,9 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
           ),
         ),
         leading: IconButton(
+          tooltip: 'Voltar',
           icon: const Icon(Icons.chevron_left, color: AppColors.black),
-          onPressed: () => context.go('/home'),
+          onPressed: () => context.go(AppRoutes.home),
           iconSize: 30,
         ),
       ),

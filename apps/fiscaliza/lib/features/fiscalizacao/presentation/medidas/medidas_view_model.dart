@@ -1,22 +1,15 @@
+import 'package:fiscaliza/features/fiscalizacao/domain/perfil_peca.dart';
+import 'package:fiscaliza/core/utils/sentinel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:app/core/utils/formatting_converter.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_local_datasource.dart';
-import 'package:app/features/fiscalizacao/data/models/medicao_grupo_model.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
-
-const Object _sentinel = Object();
-
-const List<Map<String, dynamic>> tamanhosComuns = [
-  {'nome': 'Prancha', 'comp': 300.0, 'larg': 30.0, 'alt': 5.0},
-  {'nome': 'Viga', 'comp': 300.0, 'larg': 15.0, 'alt': 5.0},
-  {'nome': 'Caibro', 'comp': 300.0, 'larg': 5.0, 'alt': 5.0},
-  {'nome': 'Tábua', 'comp': 300.0, 'larg': 30.0, 'alt': 2.5},
-  {'nome': 'Ripa', 'comp': 300.0, 'larg': 5.0, 'alt': 1.5},
-];
+import 'package:fiscaliza/core/utils/formatting_converter.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_repository.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/medicao_grupo_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_providers.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_view_model.dart';
 
 class MedidasState {
   final List<MedicaoGrupoModel> listaMedidas;
@@ -44,7 +37,7 @@ class MedidasState {
 
   MedidasState copyWith({
     List<MedicaoGrupoModel>? listaMedidas,
-    Object? indexEmEdicao = _sentinel,
+    Object? indexEmEdicao = kSentinel,
     bool? isSaving,
     bool? isNavigating,
     bool? isLoading,
@@ -53,7 +46,7 @@ class MedidasState {
   }) =>
       MedidasState(
         listaMedidas: listaMedidas ?? this.listaMedidas,
-        indexEmEdicao: indexEmEdicao == _sentinel
+        indexEmEdicao: indexEmEdicao == kSentinel
             ? this.indexEmEdicao
             : indexEmEdicao as int?,
         isSaving: isSaving ?? this.isSaving,
@@ -70,7 +63,7 @@ final medidasViewModelProvider =
 );
 
 class MedidasViewModel extends AutoDisposeNotifier<MedidasState> {
-  late FiscalizacaoLocalDatasource _ds;
+  late FiscalizacaoRepository _ds;
   late DofItemModel _dofItem;
 
   final comprimentoController = TextEditingController();
@@ -80,7 +73,7 @@ class MedidasViewModel extends AutoDisposeNotifier<MedidasState> {
 
   @override
   MedidasState build() {
-    _ds = ref.read(fiscalizacaoLocalDatasourceProvider);
+    _ds = ref.read(fiscalizacaoRepositoryProvider);
     ref.onDispose(() {
       comprimentoController.dispose();
       larguraController.dispose();
@@ -122,14 +115,14 @@ class MedidasViewModel extends AutoDisposeNotifier<MedidasState> {
   }
 
   int get yoloCountAtual {
-    final capturaState = ref.read(capturaNotifierProvider);
+    final capturaState = ref.read(capturaViewModelProvider);
     final idx = state.currentFotoIndex;
     return idx < capturaState.fotos.length ? capturaState.fotos[idx].count : 0;
   }
 
-  int get totalFotosSessao => ref.read(capturaNotifierProvider).fotos.length;
+  int get totalFotosSessao => ref.read(capturaViewModelProvider).fotos.length;
 
-  int get totalCountSessao => ref.read(capturaNotifierProvider).totalCount;
+  int get totalCountSessao => ref.read(capturaViewModelProvider).totalCount;
 
   int get pecasRestantes {
     final yoloCount = yoloCountAtual;
@@ -159,16 +152,12 @@ class MedidasViewModel extends AutoDisposeNotifier<MedidasState> {
         quantidade: item.quantidade,
       );
 
-  void preencherAtalho(Map<String, dynamic> tamanho) {
-    comprimentoController.text = (tamanho['comp'] as double).toStringAsFixed(
-      0,
-    );
-    larguraController.text = (tamanho['larg'] as double)
-        .toStringAsFixed(1)
-        .replaceAll('.0', '');
-    alturaController.text = (tamanho['alt'] as double)
-        .toStringAsFixed(1)
-        .replaceAll('.0', '');
+  void preencherAtalho(PerfilPeca perfil) {
+    comprimentoController.text = perfil.comprimentoCm.toStringAsFixed(0);
+    larguraController.text =
+        perfil.larguraCm.toStringAsFixed(1).replaceAll('.0', '');
+    alturaController.text =
+        perfil.alturaCm.toStringAsFixed(1).replaceAll('.0', '');
     if (quantidadeController.text.isEmpty) quantidadeController.text = '1';
   }
 
@@ -302,7 +291,7 @@ class MedidasViewModel extends AutoDisposeNotifier<MedidasState> {
     if (state.isSaving) return false;
     state = state.copyWith(isSaving: true);
     try {
-      final capturaState = ref.read(capturaNotifierProvider);
+      final capturaState = ref.read(capturaViewModelProvider);
       await _ds.recalcularEPersistirVolume(_dofItem, capturaState.totalCount);
       ref.invalidate(registroPorItemProvider(_dofItem.id));
       await ref.read(registroPorItemProvider(_dofItem.id).future);

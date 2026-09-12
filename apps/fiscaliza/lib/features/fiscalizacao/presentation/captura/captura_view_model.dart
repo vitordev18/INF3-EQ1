@@ -1,3 +1,4 @@
+import 'package:fiscaliza/core/ml/recognition.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -7,275 +8,25 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:app/core/services/yolo_service.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/dof/presentation/providers/dof_providers.dart';
-import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_local_datasource.dart';
-import 'package:app/features/fiscalizacao/data/datasources/fiscalizacao_sessao_local_datasource.dart';
-import 'package:app/features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
-import 'package:app/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
-import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
+import 'package:fiscaliza/core/ml/yolo_service.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_repository.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
+import 'package:fiscaliza/core/ml/ml_providers.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_state.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/fisc_edit_action.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/foto_session.dart';
 
-// ─── Edit action sealed class (para undo) ─────────────────────────────────────
-
-sealed class FiscEditAction {}
-
-class FiscAddedDetections extends FiscEditAction {
-  final List<Recognition> added;
-  FiscAddedDetections(this.added);
-}
-
-class FiscRemovedDetection extends FiscEditAction {
-  final Recognition removed;
-  final int originalIndex;
-  FiscRemovedDetection(this.removed, this.originalIndex);
-}
-
-class FiscMovedDetection extends FiscEditAction {
-  final Recognition oldDetection;
-  final Recognition newDetection;
-  FiscMovedDetection(this.oldDetection, this.newDetection);
-}
-
-// ─── Data classes ─────────────────────────────────────────────────────────────
-
-class FotoSession {
-  final File imageFile;
-  final img.Image? decodedImage;
-  final List<Recognition> detections;
-  final List<FiscEditAction> undoStack;
-  final List<Rect> savedRegions;
-  final bool awaitingRegionSelection;
-
-  const FotoSession({
-    required this.imageFile,
-    this.decodedImage,
-    this.detections = const [],
-    this.undoStack = const [],
-    this.savedRegions = const [],
-    this.awaitingRegionSelection = true,
-  });
-
-  int get count => detections.length;
-  int get width => decodedImage?.width ?? 640;
-  int get height => decodedImage?.height ?? 640;
-
-  FotoSession copyWith({
-    File? imageFile,
-    img.Image? decodedImage,
-    List<Recognition>? detections,
-    List<FiscEditAction>? undoStack,
-    List<Rect>? savedRegions,
-    bool? awaitingRegionSelection,
-  }) =>
-      FotoSession(
-        imageFile: imageFile ?? this.imageFile,
-        decodedImage: decodedImage ?? this.decodedImage,
-        detections: detections ?? this.detections,
-        undoStack: undoStack ?? this.undoStack,
-        savedRegions: savedRegions ?? this.savedRegions,
-        awaitingRegionSelection:
-            awaitingRegionSelection ?? this.awaitingRegionSelection,
-      );
-}
-
-class CapturaState {
-  final List<FotoSession> fotos;
-  final int currentIndex;
-  final bool isProcessing;
-  final bool modelReady;
-  final bool modelError;
-  final bool isEditMode;
-  final bool isRegionMode;
-  final Rect? draggingRegion;
-  final bool isDirty;
-
-  const CapturaState({
-    this.fotos = const [],
-    this.currentIndex = 0,
-    this.isProcessing = false,
-    this.modelReady = false,
-    this.modelError = false,
-    this.isEditMode = false,
-    this.isRegionMode = false,
-    this.draggingRegion,
-    this.isDirty = false,
-  });
-
-  int get totalCount => fotos.fold(0, (s, f) => s + f.count);
-
-  FotoSession? get current =>
-      fotos.isEmpty ? null : fotos[currentIndex];
-
-  CapturaState copyWith({
-    List<FotoSession>? fotos,
-    int? currentIndex,
-    bool? isProcessing,
-    bool? modelReady,
-    bool? modelError,
-    bool? isEditMode,
-    bool? isRegionMode,
-    // Use a nullable getter pattern to allow explicit null assignment
-    Object? draggingRegion = _sentinel,
-    bool? isDirty,
-  }) =>
-      CapturaState(
-        fotos: fotos ?? this.fotos,
-        currentIndex: currentIndex ?? this.currentIndex,
-        isProcessing: isProcessing ?? this.isProcessing,
-        modelReady: modelReady ?? this.modelReady,
-        modelError: modelError ?? this.modelError,
-        isEditMode: isEditMode ?? this.isEditMode,
-        isRegionMode: isRegionMode ?? this.isRegionMode,
-        draggingRegion: draggingRegion == _sentinel
-            ? this.draggingRegion
-            : draggingRegion as Rect?,
-        isDirty: isDirty ?? this.isDirty,
-      );
-}
-
-const Object _sentinel = Object();
-
-// ─── Providers ────────────────────────────────────────────────────────────────
-
-final yoloServiceProvider = Provider<YoloService>((ref) => YoloService());
-
-final fiscalizacaoLocalDatasourceProvider =
-    Provider<FiscalizacaoLocalDatasource>((ref) {
-  final isarService = ref.watch(isarServiceProvider);
-  return FiscalizacaoLocalDatasource(isarService);
-});
-
-final registroPorItemProvider =
-    FutureProvider.family<FiscalizacaoRegistroModel?, String>(
-  (ref, dofItemId) {
-    final ds = ref.watch(fiscalizacaoLocalDatasourceProvider);
-    return ds.getByDofItemId(dofItemId);
-  },
+final capturaViewModelProvider =
+    AutoDisposeNotifierProvider<CapturaViewModel, CapturaState>(
+  CapturaViewModel.new,
 );
 
-// ─── Sessão de fiscalização (lote por import DOF) ─────────────────────────────
-
-final fiscalizacaoSessaoLocalDatasourceProvider =
-    Provider<FiscalizacaoSessaoLocalDatasource>((ref) {
-  final isarService = ref.watch(isarServiceProvider);
-  return FiscalizacaoSessaoLocalDatasource(isarService);
-});
-
-/// Sessão em andamento (se houver), exibida no banner de aviso do Hub de
-/// Início. Após criar ou encerrar uma sessão, invalide este provider
-/// (`ref.invalidate(sessaoAtivaProvider)`) para refletir a mudança na UI.
-final sessaoAtivaProvider = FutureProvider<FiscalizacaoSessaoModel?>((ref) {
-  final ds = ref.watch(fiscalizacaoSessaoLocalDatasourceProvider);
-  return ds.getSessaoAtiva();
-});
-
-/// Últimas fiscalizações concluídas, para a seção "Últimas Fiscalizações" do
-/// Hub de Início. Invalide (`ref.invalidate(sessoesRecentesProvider)`) após
-/// `encerrarSessao()` para refletir a nova entrada.
-final sessoesRecentesProvider =
-    FutureProvider<List<FiscalizacaoSessaoModel>>((ref) {
-  final ds = ref.watch(fiscalizacaoSessaoLocalDatasourceProvider);
-  return ds.getSessoesRecentes();
-});
-
-/// Itens DOF da sessão ativa — o que a FiscalizacaoHubScreen deve listar.
-///
-/// [parsedDofItemsProvider] (em dof_providers.dart) hidrata com TODOS os
-/// `DofItemModel` persistidos, sem noção de sessão — de propósito, para não
-/// criar uma dependência de dof_providers.dart sobre este arquivo
-/// (fiscalizacao depende de dof, não o contrário). Este provider soma essa
-/// lista com [sessaoAtivaProvider] para filtrar só os itens da fiscalização
-/// em andamento.
-final itensDaSessaoAtivaProvider = Provider<List<DofItemModel>>((ref) {
-  final sessaoAtiva = ref.watch(sessaoAtivaProvider).valueOrNull;
-  if (sessaoAtiva == null) return const [];
-  final todosOsItens = ref.watch(parsedDofItemsProvider);
-  return todosOsItens
-      .where((item) => item.sessaoId == sessaoAtiva.id)
-      .toList();
-});
-
-/// Progresso ao vivo da sessão ativa — (concluídos, total) — para o texto
-/// "X de Y itens concluídos" do banner de aviso do Hub de Início.
-///
-/// Não pode vir dos snapshots de [FiscalizacaoSessaoModel]: esses só são
-/// preenchidos em `encerrarSessao()`, ficando `null` enquanto a sessão está
-/// em andamento (é justamente esse o momento em que o banner aparece). Por
-/// isso este provider recalcula a partir dos registros de cada item — igual
-/// à contagem feita em `encerrarSessao()`, mas sem persistir nada. "Concluído"
-/// aqui conta tanto `concluido` quanto `excedente`: ambos são estados
-/// terminais (o item já foi fotografado e processado), diferindo apenas em
-/// ter ou não excedido o saldo declarado.
-final progressoSessaoAtivaProvider =
-    FutureProvider<(int concluidos, int total)>((ref) async {
-  final itens = ref.watch(itensDaSessaoAtivaProvider);
-  if (itens.isEmpty) return (0, 0);
-  final ds = ref.watch(fiscalizacaoLocalDatasourceProvider);
-  final registros = await Future.wait(
-    itens.map((item) => ds.getByDofItemId(item.id)),
-  );
-  final concluidos = registros
-      .where((r) =>
-          r?.status == StatusFiscalizacao.concluido ||
-          r?.status == StatusFiscalizacao.excedente)
-      .length;
-  return (concluidos, itens.length);
-});
-
-/// Resumo completo da sessão ativa — (total, concluídos, excedentes,
-/// pendentes) — para o card de estatísticas da ConcluirFiscalizacaoScreen.
-///
-/// Usa exatamente a mesma regra de contagem de
-/// [FiscalizacaoSessaoLocalDatasource.encerrarSessao] (`emAndamento`,
-/// `pendente` e "sem registro" contam todos como pendente), para que os
-/// números mostrados antes de concluir batam com o snapshot gravado no
-/// instante em que o usuário efetivamente encerra a sessão.
-final resumoSessaoAtivaProvider = FutureProvider<
-    (int total, int concluidos, int excedentes, int pendentes)>((ref) async {
-  final itens = ref.watch(itensDaSessaoAtivaProvider);
-  if (itens.isEmpty) return (0, 0, 0, 0);
-  final ds = ref.watch(fiscalizacaoLocalDatasourceProvider);
-  final registros = await Future.wait(
-    itens.map((item) => ds.getByDofItemId(item.id)),
-  );
-  var concluidos = 0;
-  var excedentes = 0;
-  var pendentes = 0;
-  for (final r in registros) {
-    switch (r?.status) {
-      case StatusFiscalizacao.concluido:
-        concluidos++;
-        break;
-      case StatusFiscalizacao.excedente:
-        excedentes++;
-        break;
-      case StatusFiscalizacao.emAndamento:
-      case StatusFiscalizacao.pendente:
-      case null:
-        pendentes++;
-        break;
-    }
-  }
-  return (itens.length, concluidos, excedentes, pendentes);
-});
-
-final capturaNotifierProvider =
-    AutoDisposeNotifierProvider<CapturaNotifier, CapturaState>(
-  CapturaNotifier.new,
-);
-
-// ─── Notifier ─────────────────────────────────────────────────────────────────
-
-class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
+class CapturaViewModel extends AutoDisposeNotifier<CapturaState> {
   late YoloService _yolo;
   static const int _maxUndoDepth = 20;
 
-  // Snapshot de savedRegions/detections tirado no instante em que o modo de
-  // edição de área é reaberto (via botão "Área" sobre um registro já
-  // existente). Permite que "Cancelar" desfaça só o que foi feito durante
-  // esta sessão de edição (desenhar, mover, redimensionar ou apagar áreas),
-  // sem afetar áreas/detecções que já existiam antes de entrar no modo.
   List<Rect>? _regionEditSnapshot;
   List<Recognition>? _detectionsEditSnapshot;
 
@@ -297,7 +48,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     }
   }
 
-  // Adds photo WITHOUT running YOLO — user must tap "Detectar"
   Future<void> addPhoto(File file) async {
     state = state.copyWith(isProcessing: true);
     try {
@@ -324,13 +74,10 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     }
   }
 
-  // Runs YOLO on saved regions (or full image if no regions selected)
   Future<void> confirmRegionAndProcess() async {
     final session = state.current;
     if (session == null) return;
 
-    // Confirmando: as mudanças feitas durante a edição são mantidas, então
-    // o snapshot usado por "Cancelar" não é mais necessário.
     _regionEditSnapshot = null;
     _detectionsEditSnapshot = null;
 
@@ -412,12 +159,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     state = state.copyWith(fotos: newFotos, isDirty: true);
   }
 
-  /// Permanently discards a region that was picked up via [beginEditRegion]
-  /// (dropped on the trash target while being dragged), instead of putting
-  /// it back with [addSavedRegion]. Since [beginEditRegion] already removed
-  /// it from `savedRegions`, this only needs to filter out any detections
-  /// whose center falls inside it — mirroring what [removeSavedRegion] does
-  /// for a region that's still in the list — and clear `draggingRegion`.
   void discardDraggedRegion(Rect region) {
     if (state.fotos.isEmpty) return;
     final idx = state.currentIndex;
@@ -440,14 +181,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     state = state.copyWith(draggingRegion: region);
   }
 
-  /// Picks up an already-saved region so it can be resized/moved live.
-  ///
-  /// Unlike [removeSavedRegion], this does NOT touch `detections` — the
-  /// region is only temporarily removed from `savedRegions` (it reappears,
-  /// possibly with a new shape, once the edit gesture ends and the caller
-  /// calls [addSavedRegion] again). Returns the removed rect so the caller
-  /// can seed it into `draggingRegion` and use it as the resize/move
-  /// reference, or null if the index was invalid.
   Rect? beginEditRegion(int regionIndex) {
     if (state.fotos.isEmpty) return null;
     final idx = state.currentIndex;
@@ -465,10 +198,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
 
   void setIsRegionMode(bool value) {
     if (value) {
-      // Entrando no modo de edição: guarda o estado atual para que
-      // "Cancelar" possa restaurá-lo exatamente, descartando só o que for
-      // feito a partir de agora (novas áreas, moves/resizes, ou deleções
-      // via arraste-para-lixeira e as detecções que elas removem).
       final session = state.current;
       _regionEditSnapshot = session?.savedRegions;
       _detectionsEditSnapshot = session?.detections;
@@ -512,17 +241,14 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     );
   }
 
-  /// Remove a foto e limpa as medições associadas do banco, reindexando as demais.
   Future<void> removePhotoAndCleanup(
     int index,
     String dofItemId,
-    FiscalizacaoLocalDatasource datasource,
+    FiscalizacaoRepository datasource,
   ) async {
     if (index < 0 || index >= state.fotos.length) return;
-    // Remove do banco: medições da foto removida + reindexar restantes
     await datasource.deleteMedicoesDaFoto(dofItemId, index);
     await datasource.reindexMedicoesAposRemocao(dofItemId, index);
-    // Atualiza estado em memória
     removePhoto(index);
   }
 
@@ -555,7 +281,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
     if (session.undoStack.isEmpty) return;
     final action = session.undoStack.last;
     final newStack = session.undoStack.sublist(0, session.undoStack.length - 1);
-    List<Recognition> newDets = [...session.detections];
+    final List<Recognition> newDets = [...session.detections];
     switch (action) {
       case FiscRemovedDetection(:final removed, :final originalIndex):
         newDets.insert(originalIndex.clamp(0, newDets.length), removed);
@@ -636,7 +362,7 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
 
   Future<void> saveCaptura(
     DofItemModel dofItem,
-    FiscalizacaoLocalDatasource datasource,
+    FiscalizacaoRepository datasource,
   ) async {
     state = state.copyWith(isProcessing: true);
     try {
@@ -670,7 +396,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
 
       final totalCount = state.totalCount;
 
-      // Persiste caminhos e detecções antes de recalcular volume/status
       final existing = await datasource.getByDofItemId(dofItem.id);
       final registro = FiscalizacaoRegistroModel(
         id: existing?.id ?? const Uuid().v4(),
@@ -686,7 +411,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
       if (existing != null) registro.isarId = existing.isarId;
       await datasource.saveRegistro(registro);
 
-      // Recalcula volume e status com base nas medições
       await datasource.recalcularEPersistirVolume(dofItem, totalCount);
       state = state.copyWith(isProcessing: false, isDirty: false);
     } catch (e) {
@@ -744,9 +468,6 @@ class CapturaNotifier extends AutoDisposeNotifier<CapturaState> {
         ));
       }
 
-      // Carrega sem nenhum modo ativo — savedRegions ficam guardadas na
-      // sessão e reaparecem quando o fiscal tocar em "Área" para editar,
-      // mas a tela não deve abrir automaticamente em modo de edição.
       state = state.copyWith(
         fotos: sessions,
         currentIndex: sessions.isNotEmpty ? sessions.length - 1 : 0,

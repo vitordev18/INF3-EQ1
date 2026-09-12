@@ -1,28 +1,15 @@
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/core/widgets/app_icon.dart';
-import 'package:app/core/widgets/app_scaffold.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
-import 'package:app/features/fiscalizacao/presentation/widgets/status_pill.dart';
+import 'package:fiscaliza/app/router/app_routes.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
+import 'package:fiscaliza/design_system/components/app_icon.dart';
+import 'package:fiscaliza/design_system/components/app_scaffold.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/fiscalizacao_providers.dart';
+import 'package:fiscaliza/design_system/components/status_pill.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-/// Tela de revisão final antes de encerrar a sessão de fiscalização: mostra
-/// o card de estatísticas (itens/concluídos/excedentes/pendentes), um aviso
-/// condicional quando sobram itens pendentes, e a lista de todos os itens
-/// da sessão com seu status atual. O botão no rodapé chama
-/// `encerrarSessao()` (que grava os snapshots em [FiscalizacaoSessaoModel])
-/// e volta para o Hub de Início. Réplica fiel de
-/// `ConcluirFiscalizacaoScreen` em `fiscaliza-plano-historico/index.html`.
-///
-/// As linhas da lista aqui são propositalmente mais simples que
-/// [FiscalizaListTile] (só título + pill, sem chevron, sem meta-linhas):
-/// esta tela é uma revisão, não navega para lugar nenhum ao tocar num item,
-/// então reutilizar o componente da Home/Hub só para suprimir o chevron
-/// infuiria mais parâmetros nele do que vale a pena — por isso um row local
-/// simples aqui em vez de estender aquele componente pela terceira vez.
 class ConcluirFiscalizacaoScreen extends ConsumerWidget {
   const ConcluirFiscalizacaoScreen({super.key});
 
@@ -38,11 +25,11 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
     WidgetRef ref,
     String sessaoId,
   ) async {
-    final ds = ref.read(fiscalizacaoSessaoLocalDatasourceProvider);
+    final ds = ref.read(fiscalizacaoSessaoRepositoryProvider);
     await ds.encerrarSessao(sessaoId);
     ref.invalidate(sessaoAtivaProvider);
     ref.invalidate(sessoesRecentesProvider);
-    if (context.mounted) context.go('/home');
+    if (context.mounted) context.go(AppRoutes.home);
   }
 
   @override
@@ -62,8 +49,9 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
           style: TextStyle(color: AppColors.black, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
+          tooltip: 'Voltar',
           icon: const Icon(Icons.chevron_left, color: AppColors.black),
-          onPressed: () => context.go('/fiscalizacao'),
+          onPressed: () => context.go(AppRoutes.hub),
           iconSize: 30,
         ),
       ),
@@ -264,17 +252,17 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(9),
             onTap: () => _concluir(context, ref, sessaoId),
-            child: Center(
+            child: const Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const AppSvgIcon(
+                  AppSvgIcon(
                     AppIcon.checkCircle,
                     size: 13,
                     color: Colors.white,
                   ),
-                  const SizedBox(width: 6),
-                  const Text(
+                  SizedBox(width: 6),
+                  Text(
                     'Concluir e Salvar no Histórico',
                     style: TextStyle(
                       color: Colors.white,

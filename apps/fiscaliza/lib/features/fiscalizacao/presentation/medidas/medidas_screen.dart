@@ -1,14 +1,16 @@
+import 'package:fiscaliza/features/fiscalizacao/domain/perfil_peca.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:app/core/theme/app_colors.dart';
-import 'package:app/core/utils/dialogs.dart';
-import 'package:app/core/widgets/app_scaffold.dart';
-import 'package:app/features/dof/data/models/dof_item_model.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/fiscalizacao_providers.dart';
-import 'package:app/features/fiscalizacao/presentation/providers/medidas_viewmodel.dart';
+import 'package:fiscaliza/design_system/theme/app_colors.dart';
+import 'package:fiscaliza/design_system/dialogs/confirm_dialog.dart';
+import 'package:fiscaliza/design_system/components/app_scaffold.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_state.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_view_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/presentation/medidas/medidas_view_model.dart';
 
 class MedidasScreen extends ConsumerStatefulWidget {
   final DofItemModel dofItem;
@@ -124,7 +126,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
   Widget build(BuildContext context) {
     final vmState = ref.watch(medidasViewModelProvider);
     final vm = ref.read(medidasViewModelProvider.notifier);
-    final capturaState = ref.watch(capturaNotifierProvider);
+    final capturaState = ref.watch(capturaViewModelProvider);
     final yoloCount = vm.yoloCountAtual;
     final pecasRestantes = vm.pecasRestantes;
     final totalFotos = capturaState.fotos.length;
@@ -139,6 +141,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
         backgroundColor: Colors.grey.shade50,
         appBar: AppBar(
           leading: IconButton(
+            tooltip: 'Voltar',
             icon: const Icon(Icons.chevron_left),
             onPressed: _handleBackPress,
             iconSize: 30,
@@ -153,6 +156,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
           actions: [
             if (totalFotos > 1) ...[
               IconButton(
+                tooltip: 'Foto anterior',
                 icon: const Icon(Icons.chevron_left),
                 onPressed:
                     (vmState.currentFotoIndex > 0 && !vmState.isNavigating)
@@ -169,6 +173,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                 ),
               ),
               IconButton(
+                tooltip: 'Próxima foto',
                 icon: const Icon(Icons.chevron_right),
                 onPressed:
                     (vmState.currentFotoIndex < totalFotos - 1 &&
@@ -185,7 +190,6 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
               )
             : Column(
                 children: [
-                  // ─── Contadores ──────────────────────────────────────────
                   Container(
                     color: AppColors.green,
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -235,16 +239,14 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                     ),
                   ),
 
-                  // ─── Área scrollável: espécie + atalhos + formulário ──────
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Espécie
                         Row(
                           children: [
-                            Icon(
+                            const Icon(
                               Icons.eco_outlined,
                               size: 14,
                               color: AppColors.green,
@@ -266,11 +268,10 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Atalhos
                         Wrap(
                           spacing: 8,
                           runSpacing: 6,
-                          children: tamanhosComuns.map((t) {
+                          children: perfisComuns.map((t) {
                             return GestureDetector(
                               onTap: () => vm.preencherAtalho(t),
                               child: Container(
@@ -294,7 +295,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                                   ],
                                 ),
                                 child: Text(
-                                  '${t['nome']} ${(t['larg'] as double).toInt()}×${t['alt']}',
+                                  t.rotulo,
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade800,
@@ -306,7 +307,6 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Label do formulário
                         Text(
                           vmState.emEdicao ? 'Editando medida' : 'Nova medida',
                           style: TextStyle(
@@ -320,7 +320,6 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                         ),
                         const SizedBox(height: 6),
 
-                        // Campos dimensões (linha 1)
                         Row(
                           children: [
                             Expanded(
@@ -347,7 +346,6 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                         ),
                         const SizedBox(height: 8),
 
-                        // Quantidade + botão (linha 2)
                         Row(
                           children: [
                             SizedBox(
@@ -424,7 +422,6 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Cabeçalho tabela
                         Row(
                           children: [
                             Icon(
@@ -458,7 +455,6 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
 
                   const SizedBox(height: 8),
 
-                  // ─── Tabela scrollável ────────────────────────────────────
                   Expanded(
                     child: vmState.listaMedidas.isEmpty
                         ? Center(
@@ -530,7 +526,7 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
                                             const SizedBox(height: 3),
                                             Text(
                                               '${volume.toStringAsFixed(4)} m³',
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: AppColors.green,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12,
@@ -569,11 +565,9 @@ class _MedidasScreenState extends ConsumerState<MedidasScreen> {
 
                   const SizedBox(height: 4),
 
-                  // ─── Thumbnail strip ──────────────────────────────────────
                   if (totalFotos > 1)
                     _buildThumbnailStrip(capturaState, vmState, vm),
 
-                  // ─── Botão salvar fixo ────────────────────────────────────
                   _buildSaveButton(vmState),
                 ],
               ),

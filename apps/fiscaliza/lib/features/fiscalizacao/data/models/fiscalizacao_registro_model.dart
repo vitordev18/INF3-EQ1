@@ -1,5 +1,5 @@
 import 'package:isar/isar.dart';
-import 'package:app/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
+import 'package:fiscaliza/features/fiscalizacao/domain/entities/status_fiscalizacao.dart';
 
 part 'fiscalizacao_registro_model.g.dart';
 
@@ -13,17 +13,12 @@ class FiscalizacaoRegistroModel {
   late List<String> fotoPaths;
   late DateTime dataCaptura;
 
-  /// JSON-encoded `List<Recognition>` por foto.
-  /// Índice alinhado com fotoPaths. Default [] garante compatibilidade com registros antigos.
   List<String> detecoesPorFoto = [];
 
-  /// JSON-encoded `List<List<double>>` (serialized Rect as [left, top, right, bottom]) por foto.
-  /// Representa as `savedRegions` desenhadas pelo fiscal em cada foto.
-  /// Índice alinhado com fotoPaths. Default [] garante compatibilidade com registros antigos.
   List<String> regioesPorFoto = [];
 
-  /// Soma do volume (m³) de todos os MedicaoGrupoModel desta fiscalização.
-  /// 0.0 enquanto o fiscal não preencher a tela de Medidas.
+  /// Soma do volume cubado dos grupos de medição; 0.0 enquanto o fiscal não
+  /// preencher a tela de Medidas.
   double volumeTotalM3 = 0.0;
 
   @enumerated

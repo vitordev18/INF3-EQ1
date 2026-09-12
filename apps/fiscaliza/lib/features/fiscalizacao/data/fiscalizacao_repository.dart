@@ -1,16 +1,16 @@
 import 'package:isar/isar.dart';
 import 'package:uuid/uuid.dart';
-import '../../../../core/services/isar_service.dart';
-import '../../../../core/utils/formatting_converter.dart';
-import '../../../dof/data/models/dof_item_model.dart';
-import '../models/fiscalizacao_registro_model.dart';
-import '../models/medicao_grupo_model.dart';
-import '../../domain/entities/status_fiscalizacao.dart';
+import 'package:fiscaliza/core/database/isar_service.dart';
+import 'package:fiscaliza/core/utils/formatting_converter.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_registro_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/data/models/medicao_grupo_model.dart';
+import 'package:fiscaliza/features/fiscalizacao/domain/calculo_status.dart';
 
-class FiscalizacaoLocalDatasource {
+class FiscalizacaoRepository {
   final IsarService _isarService;
 
-  FiscalizacaoLocalDatasource(this._isarService);
+  FiscalizacaoRepository(this._isarService);
 
   Future<void> saveRegistro(FiscalizacaoRegistroModel registro) async {
     final isar = await _isarService.db;
@@ -35,7 +35,6 @@ class FiscalizacaoLocalDatasource {
   Future<void> deleteByDofItemId(String dofItemId) async {
     final isar = await _isarService.db;
     await isar.writeTxn(() async {
-      // Cascade: remove medições antes de remover o registro
       final medicoes = await isar.medicaoGrupoModels
           .filter()
           .dofItemIdEqualTo(dofItemId)
@@ -53,9 +52,6 @@ class FiscalizacaoLocalDatasource {
     });
   }
 
-  // ─── MedicaoGrupoModel ──────────────────────────────────────────────────────
-
-  /// Substitui todos os grupos de uma foto específica pelos novos grupos (operação atômica).
   Future<void> saveMedicoesDaFoto(
     String dofItemId,
     int fotoIndex,
@@ -78,13 +74,11 @@ class FiscalizacaoLocalDatasource {
     });
   }
 
-  /// Soma a quantidade de peças medidas em todas as fotos de um DOF item.
   Future<int> getTotalMedidoByDofItem(String dofItemId) async {
     final medicoes = await getMedicoesByDofItem(dofItemId);
     return medicoes.fold<int>(0, (s, m) => s + m.quantidade);
   }
 
-  /// Retorna todos os grupos de medição de um DOF item (todas as fotos).
   Future<List<MedicaoGrupoModel>> getMedicoesByDofItem(String dofItemId) async {
     final isar = await _isarService.db;
     return await isar.medicaoGrupoModels
@@ -93,7 +87,6 @@ class FiscalizacaoLocalDatasource {
         .findAll();
   }
 
-  /// Retorna os grupos de medição de uma foto específica.
   Future<List<MedicaoGrupoModel>> getMedicoesDaFoto(
     String dofItemId,
     int fotoIndex,
@@ -107,7 +100,6 @@ class FiscalizacaoLocalDatasource {
         .findAll();
   }
 
-  /// Deleta todos os grupos de medição de uma foto específica.
   Future<void> deleteMedicoesDaFoto(String dofItemId, int fotoIndex) async {
     final isar = await _isarService.db;
     await isar.writeTxn(() async {
@@ -123,8 +115,6 @@ class FiscalizacaoLocalDatasource {
     });
   }
 
-  /// Recalcula volume total das medições, deriva o status e persiste o registro.
-  /// Cria um registro mínimo se ainda não existir.
   Future<void> recalcularEPersistirVolume(
     DofItemModel dofItem,
     int contagemTotal,
@@ -141,16 +131,13 @@ class FiscalizacaoLocalDatasource {
     );
 
     final totalMedido = medicoes.fold(0, (s, m) => s + m.quantidade);
-    final todosMediados = contagemTotal > 0 && totalMedido >= contagemTotal;
 
-    final StatusFiscalizacao status;
-    if (!todosMediados || volume == 0.0) {
-      status = StatusFiscalizacao.emAndamento;
-    } else if (volume <= dofItem.saldoTotal) {
-      status = StatusFiscalizacao.concluido;
-    } else {
-      status = StatusFiscalizacao.excedente;
-    }
+    final status = calcularStatus(
+      volumeMedidoM3: volume,
+      saldoDeclaradoM3: dofItem.saldoTotal,
+      pecasContadas: contagemTotal,
+      pecasMedidas: totalMedido,
+    );
 
     final existing = await getByDofItemId(dofItem.id);
     final registro = FiscalizacaoRegistroModel(
@@ -169,7 +156,6 @@ class FiscalizacaoLocalDatasource {
     await saveRegistro(registro);
   }
 
-  /// Reindexar medições após remoção de foto: decrementa fotoIndex de todos com fotoIndex > removedIndex.
   Future<void> reindexMedicoesAposRemocao(
       String dofItemId, int removedIndex) async {
     final isar = await _isarService.db;
