@@ -1,55 +1,11 @@
 import 'dart:math';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
 
-class Recognition {
-  final int classId;
-  final String label;
-  final double score;
-  final Rect location; // Coordenadas normalizadas 0.0 a 1.0
+import 'package:fiscaliza/core/ml/recognition.dart';
 
-  /// Ângulo de rotação em RADIANOS (apenas modelos OBB).
-  /// null para modelos regulares.
-  final double? angle;
-
-  bool get isOBB => angle != null;
-
-  Recognition(
-    this.classId,
-    this.label,
-    this.score,
-    this.location, {
-    this.angle,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'classId': classId,
-        'label': label,
-        'score': score,
-        'left': location.left,
-        'top': location.top,
-        'right': location.right,
-        'bottom': location.bottom,
-        if (angle != null) 'angle': angle,
-      };
-
-  factory Recognition.fromJson(Map<String, dynamic> json) => Recognition(
-        json['classId'] as int,
-        json['label'] as String,
-        (json['score'] as num).toDouble(),
-        Rect.fromLTRB(
-          (json['left'] as num).toDouble(),
-          (json['top'] as num).toDouble(),
-          (json['right'] as num).toDouble(),
-          (json['bottom'] as num).toDouble(),
-        ),
-        angle: json['angle'] != null ? (json['angle'] as num).toDouble() : null,
-      );
-}
-
-// ─── Tipo do modelo detectado automaticamente ──────────────────────────────
 enum YoloModelType { regular, obb }
 
 class YoloService {
@@ -124,7 +80,7 @@ class YoloService {
       interpolation: img.Interpolation.linear,
     );
 
-    List inputTensor;
+    List<dynamic> inputTensor;
     if (_isNCHW) {
       inputTensor = List.generate(
         1,
@@ -242,8 +198,6 @@ class YoloService {
     return normalCount >= pixelCount;
   }
 
-  // Fraction of a box's area that must be covered by a higher-score box
-  // to suppress it even when IoU is below nmsThreshold.
   static const double _containmentThreshold = 0.75;
 
   List<Recognition> _applyNMS(List<Recognition> candidates) {
@@ -268,7 +222,6 @@ class YoloService {
             suppressed[j] = true;
           } else if (_overlapFraction(boxes[j].location, boxes[i].location) >
               _containmentThreshold) {
-            // boxes[j] is mostly covered by the higher-score boxes[i]
             suppressed[j] = true;
           }
         }
@@ -277,7 +230,6 @@ class YoloService {
     return out;
   }
 
-  /// Fraction of [target]'s area that is covered by [reference].
   static double _overlapFraction(Rect target, Rect reference) {
     final l = max(target.left, reference.left);
     final t = max(target.top, reference.top);
