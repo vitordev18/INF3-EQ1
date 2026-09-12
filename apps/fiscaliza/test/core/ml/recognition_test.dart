@@ -1,6 +1,6 @@
+import 'package:fiscaliza/core/ml/recognition.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:app/core/services/yolo_service.dart';
 
 void main() {
   group('Recognition JSON serialization', () {

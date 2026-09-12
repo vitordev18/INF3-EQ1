@@ -1,0 +1,108 @@
+Número,Produto,Espécie (Científico),Nome Popular,Saldo Livre,Saldo Total,Unidade
+001,Tora de Madeira,Swietenia macrophylla,Mogno,45.80,100.00,m³
+002,Prancha,Cedrela odorata,Cedro,120.50,200.00,m³
+003,Tábua,Handroanthus serratifolius,Ipê Amarelo,78.90,150.00,m³
+004,Viga,Dipteryx odorata,Cumaru,200.00,300.00,m³
+005,Tora de Madeira,Bertholletia excelsa,Castanheira,85.75,120.00,m³
+
+<?xml version="1.0" encoding="UTF-8"?>
+<dof>
+  <metadata>
+    <dataImportacao>2026-04-26T15:57:03.125880</dataImportacao>
+    <totalItens>9</totalItens>
+    <nomeArquivoOrigem>DOF- RASTREABILIDADE EXTRAÍDO EM 21JAN26.csv</nomeArquivoOrigem>
+    <versaoSchema>1.0</versaoSchema>
+  </metadata>
+  <itens>
+    <item>
+      <id>519c63ef-03a0-43aa-9342-169271925f18</id>
+      <numero>1</numero>
+      <produto>Madeira beneficiada</produto>
+      <especieCientifico>Dipteryx odorata</especieCientifico>
+      <nomePopular>Cumaru</nomePopular>
+      <saldoLivre>1.42</saldoLivre>
+      <saldoTotal>1.42</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>03306824-02f1-4d31-87c9-0b595cfb9a52</id>
+      <numero>2</numero>
+      <produto>Madeira beneficiada</produto>
+      <especieCientifico>Couratari oblongifolia</especieCientifico>
+      <nomePopular>Tauari</nomePopular>
+      <saldoLivre>2.79</saldoLivre>
+      <saldoTotal>2.79</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>dc09277f-2a77-4066-bf0a-91ab4207d57a</id>
+      <numero>3</numero>
+      <produto>Madeira beneficiada</produto>
+      <especieCientifico>Erisma uncinatum</especieCientifico>
+      <nomePopular>Cedrinho</nomePopular>
+      <saldoLivre>1.09</saldoLivre>
+      <saldoTotal>1.09</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>ca3aaa0b-75bf-4f17-8a8d-62bf2e5cd7b8</id>
+      <numero>4</numero>
+      <produto>Madeira beneficiada</produto>
+      <especieCientifico>Erisma uncinatum</especieCientifico>
+      <nomePopular>Cedrinho</nomePopular>
+      <saldoLivre>2.78</saldoLivre>
+      <saldoTotal>2.78</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>60167114-c173-45f8-91d1-7caf9b18d0b2</id>
+      <numero>5</numero>
+      <produto>Madeira serrada</produto>
+      <especieCientifico>Hymenaea courbaril</especieCientifico>
+      <nomePopular>Jatobá</nomePopular>
+      <saldoLivre>28.24</saldoLivre>
+      <saldoTotal>28.24</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>f27b5176-a154-4a08-a675-d5681426bb2f</id>
+      <numero>6</numero>
+      <produto>Madeira serrada</produto>
+      <especieCientifico>Goupia glabra</especieCientifico>
+      <nomePopular>Cupiúba</nomePopular>
+      <saldoLivre>32.13</saldoLivre>
+      <saldoTotal>32.13</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>a88e860d-6486-47fd-8a07-4fc111cee51e</id>
+      <numero>7</numero>
+      <produto>Madeira serrada</produto>
+      <especieCientifico>Goupia glabra</especieCientifico>
+      <nomePopular>Cupiúba</nomePopular>
+      <saldoLivre>6.57</saldoLivre>
+      <saldoTotal>6.57</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>9be291b4-4a72-47a8-9668-bd9c9f645ebf</id>
+      <numero>8</numero>
+      <produto>Madeira serrada</produto>
+      <especieCientifico>Erisma uncinatum</especieCientifico>
+      <nomePopular>Cedrinho</nomePopular>
+      <saldoLivre>7.22</saldoLivre>
+      <saldoTotal>7.22</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+    <item>
+      <id>95b08dff-5505-4090-9517-2dd018ad93eb</id>
+      <numero>9</numero>
+      <produto>Produto acabado</produto>
+      <especieCientifico>Apuleia leiocarpa</especieCientifico>
+      <nomePopular>Garapeira</nomePopular>
+      <saldoLivre>2.79</saldoLivre>
+      <saldoTotal>2.79</saldoTotal>
+      <unidade>m3</unidade>
+    </item>
+  </itens>
+</dof>       

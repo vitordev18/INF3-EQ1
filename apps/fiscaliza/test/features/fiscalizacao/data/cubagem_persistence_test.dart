@@ -1,13 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:app/features/fiscalizacao/data/models/medicao_grupo_model.dart';
-import 'package:app/core/utils/formatting_converter.dart';
-
-// Testa a lógica de negócio de persistência de cubagem independente do Isar.
-// Para testes de integração com banco real, usar isar_test_helpers quando disponível.
+import 'package:fiscaliza/features/fiscalizacao/data/models/medicao_grupo_model.dart';
+import 'package:fiscaliza/core/utils/formatting_converter.dart';
 
 void main() {
-  // ── Helpers ─────────────────────────────────────────────────────────────────
-
   MedicaoGrupoModel grupo({
     required String id,
     required String dofItemId,
@@ -29,11 +24,8 @@ void main() {
         isPrincipal: isPrincipal,
       );
 
-  // ── Cálculo de Volume ────────────────────────────────────────────────────────
-
   group('FormattingConverter.calcularVolume', () {
     test('calcula volume corretamente para prancha padrão', () {
-      // 300cm × 30cm × 5cm = 3m × 0.30m × 0.05m = 0.045m³
       final vol = FormattingConverter.calcularVolume(
         larguraCm: 30.0,
         alturaCm: 5.0,
@@ -64,10 +56,7 @@ void main() {
     });
   });
 
-  // ── Lógica de Merge de Grupos ────────────────────────────────────────────────
-
   group('Merge de grupos com mesmas dimensões', () {
-    // Replica a lógica de _adicionarNaTabelaLocal para testar isoladamente
     List<MedicaoGrupoModel> simularAdicionar(
       List<MedicaoGrupoModel> lista,
       MedicaoGrupoModel novo,
@@ -104,7 +93,7 @@ void main() {
 
       expect(lista.length, equals(1));
       expect(lista.first.quantidade, equals(5));
-      expect(lista.first.id, equals('a')); // preserva id original
+      expect(lista.first.id, equals('a'));
     });
 
     test('inserir medidas com dimensões diferentes cria grupos separados', () {
@@ -122,7 +111,6 @@ void main() {
       final g1 = grupo(id: 'a', dofItemId: 'dof1', fotoIndex: 0, quantidade: 1);
       final g2 = grupo(id: 'b', dofItemId: 'dof1', fotoIndex: 1, quantidade: 1);
 
-      // Listas por foto são separadas — simulando o comportamento da tela
       List<MedicaoGrupoModel> listaFoto0 = [];
       List<MedicaoGrupoModel> listaFoto1 = [];
 
@@ -136,10 +124,7 @@ void main() {
     });
   });
 
-  // ── Reindexação após remoção de foto ────────────────────────────────────────
-
   group('Reindexação de medições após remoção de foto', () {
-    // Replica a lógica de reindexMedicoesAposRemocao para testar isoladamente
     List<MedicaoGrupoModel> simularReindex(
       List<MedicaoGrupoModel> medicoes,
       int removedIndex,
@@ -180,9 +165,9 @@ void main() {
       ];
 
       final reindexadas = simularReindex(medicoes, 1);
-      expect(reindexadas[0].fotoIndex, equals(0)); // não muda
-      expect(reindexadas[1].fotoIndex, equals(1)); // 2 → 1
-      expect(reindexadas[2].fotoIndex, equals(2)); // 3 → 2
+      expect(reindexadas[0].fotoIndex, equals(0));
+      expect(reindexadas[1].fotoIndex, equals(1));
+      expect(reindexadas[2].fotoIndex, equals(2));
     });
 
     test('remover última foto não afeta as demais', () {
@@ -191,29 +176,22 @@ void main() {
         grupo(id: 'b', dofItemId: 'dof1', fotoIndex: 1),
       ];
 
-      final reindexadas = simularReindex(medicoes, 2); // remove a que seria índice 2
+      final reindexadas = simularReindex(medicoes, 2);
       expect(reindexadas[0].fotoIndex, equals(0));
       expect(reindexadas[1].fotoIndex, equals(1));
     });
 
     test('medições de dofItem diferente não são afetadas', () {
-      // Apenas medições com o mesmo dofItemId devem ser reindexadas
-      // (o filtro por dofItemId ocorre na query do banco, mas validamos aqui
-      // que o modelo não tem efeito cruzado)
       final m1 = grupo(id: 'a', dofItemId: 'dof1', fotoIndex: 1);
       final m2 = grupo(id: 'b', dofItemId: 'dof2', fotoIndex: 1);
 
-      // Simulando reindex só para dof1
       final medicoesDof1 = [m1];
       final reindexadas = simularReindex(medicoesDof1, 0);
-      expect(reindexadas[0].fotoIndex, equals(0)); // dof1: índice decrementou
+      expect(reindexadas[0].fotoIndex, equals(0));
 
-      // dof2 não foi reindexado (não estava na lista filtrada)
-      expect(m2.fotoIndex, equals(1)); // intacto
+      expect(m2.fotoIndex, equals(1));
     });
   });
-
-  // ── Volume Total ─────────────────────────────────────────────────────────────
 
   group('Cálculo de volume total da sessão', () {
     test('soma volumes de múltiplos grupos de fotos diferentes', () {
@@ -234,9 +212,6 @@ void main() {
         ),
       );
 
-      // Foto 0: 3.0 × 0.30 × 0.05 × 2 = 0.090
-      // Foto 1: 3.0 × 0.15 × 0.05 × 3 = 0.0675
-      // Total: 0.1575
       expect(volumeTotal, closeTo(0.1575, 1e-9));
     });
 
@@ -255,8 +230,6 @@ void main() {
     });
   });
 
-  // ── Consistência de fotoIndex ────────────────────────────────────────────────
-
   group('Integridade de fotoIndex', () {
     test('fotoIndex é preservado ao criar MedicaoGrupoModel', () {
       final m = grupo(id: 'x', dofItemId: 'dof1', fotoIndex: 3);
@@ -268,7 +241,6 @@ void main() {
       final m0 = grupo(id: 'a', dofItemId: 'dof1', fotoIndex: 0, larguraCm: 30.0);
       final m1 = grupo(id: 'b', dofItemId: 'dof1', fotoIndex: 1, larguraCm: 15.0);
 
-      // A chave de lookup é (dofItemId, fotoIndex) — grupos diferentes não se conflitam
       expect(m0.fotoIndex == m1.fotoIndex, isFalse);
     });
   });
