@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/fiscaliza/**'
+      - '.github/workflows/ci.yaml'
+  pull_request:
+    paths:
+      - 'apps/fiscaliza/**'
+      - '.github/workflows/ci.yaml'
+
+jobs:
+  analyze-and-test:
+    name: Análise estática e testes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/fiscaliza
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Instalar dependências
+        run: flutter pub get
+
+      - name: Análise estática
+        run: flutter analyze --fatal-infos
+
+      - name: Testes
+        run: flutter test
