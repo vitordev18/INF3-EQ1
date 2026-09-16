@@ -5,6 +5,7 @@ abstract final class AppRoutes {
   static const uploadDof = '/upload-dof';
   static const hub = '/fiscalizacao';
   static const concluir = '/fiscalizacao/concluir';
+  static const relatorio = '/fiscalizacao/relatorio';
   static const cadastro = '/fiscalizacao/cadastro';
   static const validacao = '/fiscalizacao/validacao';
   static const captura = '/fiscalizacao/captura';
