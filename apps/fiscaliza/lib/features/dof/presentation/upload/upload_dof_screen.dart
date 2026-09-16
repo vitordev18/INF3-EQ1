@@ -6,8 +6,120 @@ import 'package:go_router/go_router.dart';
 import 'package:fiscaliza/design_system/theme/app_colors.dart';
 import 'package:fiscaliza/design_system/components/app_scaffold.dart';
 import 'package:fiscaliza/design_system/components/action_bottom_bar.dart';
+import 'package:fiscaliza/design_system/components/app_icon.dart';
+import 'package:fiscaliza/design_system/components/fiscaliza_list_tile.dart';
+import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:fiscaliza/features/fiscalizacao/data/models/fiscalizacao_sessao_model.dart';
 import 'package:fiscaliza/features/dof/presentation/upload/upload_dof_view_model.dart';
+
+class _ItensLidos extends StatelessWidget {
+  final List<DofItemModel> itens;
+
+  const _ItensLidos({required this.itens});
+
+  static const _subtitleColor = Color(0xFF6B6B6B);
+  static const _saldoTextColor = Color(0xFF1A1A1A);
+
+  String _numero(double valor) {
+    var texto = valor.toStringAsFixed(3);
+    if (!texto.contains('.')) return texto;
+    texto = texto.replaceFirst(RegExp(r'0+$'), '');
+    return texto.endsWith('.')
+        ? texto.substring(0, texto.length - 1)
+        : texto;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+          child: Text(
+            '${itens.length} ${itens.length == 1 ? 'item lido' : 'itens lidos'}',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _subtitleColor,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.lightGrey),
+          ),
+          child: Column(
+            children: [
+              for (int i = 0; i < itens.length; i++)
+                FiscalizaListTile(
+                  title: itens[i].produto,
+                  pill: _NumeroPill(itens[i].numero),
+                  showDivider: i < itens.length - 1,
+                  metaRows: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Espécie: ${itens[i].especieCientifico}'
+                          '${itens[i].nomePopular.trim().isEmpty ? '' : ' (${itens[i].nomePopular})'}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: _subtitleColor,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        FiscalizaMetaChip(
+                          icon: AppIcon.box,
+                          text:
+                              'Saldo Declarado: ${_numero(itens[i].saldoTotal)} '
+                              '${itens[i].unidade}',
+                          color: _saldoTextColor,
+                          iconColor: AppColors.green,
+                          iconSize: 12,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                          gap: 5,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NumeroPill extends StatelessWidget {
+  final String numero;
+
+  const _NumeroPill(this.numero);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.lightGrey,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        'N° $numero',
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppColors.grey,
+        ),
+      ),
+    );
+  }
+}
 
 class UploadDofScreen extends ConsumerWidget {
   const UploadDofScreen({super.key});
@@ -151,48 +263,62 @@ class UploadDofScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      onChanged: vm.setMadeireiraCnpj,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'CNPJ',
+                        hintText: 'Ex: 12.345.678/0001-90',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.green,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      onChanged: vm.setMadeireiraEndereco,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: InputDecoration(
+                        labelText: 'Endereço',
+                        hintText: 'Ex: Rod. BR-163, km 42 — Sinop/MT',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: AppColors.green,
+                            width: 2,
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            state.parsedItems.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: Text(
-                        'Nenhum dado para exibir.\nFaça o upload da planilha.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF9E9E9E)),
-                      ),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(
-                        AppColors.lightGrey,
-                      ),
-                      columns: const [
-                        DataColumn(label: Text('Número')),
-                        DataColumn(label: Text('Produto')),
-                        DataColumn(label: Text('Espécie')),
-                        DataColumn(label: Text('Saldo Total')),
-                        DataColumn(label: Text('Unid.')),
-                      ],
-                      rows: state.parsedItems.map((item) {
-                        return DataRow(
-                          cells: [
-                            DataCell(Text(item.numero)),
-                            DataCell(Text(item.produto)),
-                            DataCell(Text(item.especieCientifico)),
-                            DataCell(Text(item.saldoTotal.toString())),
-                            DataCell(Text(item.unidade)),
-                          ],
-                        );
-                      }).toList(),
-                    ),
+            if (state.parsedItems.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Text(
+                    'Nenhum dado para exibir.\nFaça o upload da planilha.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFF9E9E9E)),
                   ),
+                ),
+              )
+            else
+              _ItensLidos(itens: state.parsedItems),
           ],
         ),
       ),
