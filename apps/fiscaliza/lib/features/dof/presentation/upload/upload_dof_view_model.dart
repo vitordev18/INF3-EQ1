@@ -33,6 +33,8 @@ class UploadDofState {
   final bool isError;
   final List<DofItemModel> parsedItems;
   final String madeireiraNome;
+  final String madeireiraCnpj;
+  final String madeireiraEndereco;
 
   const UploadDofState({
     this.isImporting = false,
@@ -41,6 +43,8 @@ class UploadDofState {
     this.isError = false,
     this.parsedItems = const [],
     this.madeireiraNome = '',
+    this.madeireiraCnpj = '',
+    this.madeireiraEndereco = '',
   });
 
   bool get canConfirm =>
@@ -56,6 +60,8 @@ class UploadDofState {
     bool? isError,
     List<DofItemModel>? parsedItems,
     String? madeireiraNome,
+    String? madeireiraCnpj,
+    String? madeireiraEndereco,
   }) => UploadDofState(
     isImporting: isImporting ?? this.isImporting,
     isSaving: isSaving ?? this.isSaving,
@@ -65,6 +71,8 @@ class UploadDofState {
     isError: isError ?? this.isError,
     parsedItems: parsedItems ?? this.parsedItems,
     madeireiraNome: madeireiraNome ?? this.madeireiraNome,
+    madeireiraCnpj: madeireiraCnpj ?? this.madeireiraCnpj,
+    madeireiraEndereco: madeireiraEndereco ?? this.madeireiraEndereco,
   );
 }
 
@@ -134,6 +142,14 @@ class UploadDofViewModel extends Notifier<UploadDofState> {
     state = state.copyWith(madeireiraNome: value);
   }
 
+  void setMadeireiraCnpj(String value) {
+    state = state.copyWith(madeireiraCnpj: value);
+  }
+
+  void setMadeireiraEndereco(String value) {
+    state = state.copyWith(madeireiraEndereco: value);
+  }
+
   Future<ConfirmarESalvarResultado> confirmarESalvar({
     bool encerrarAnterior = false,
   }) async {
@@ -153,7 +169,9 @@ class UploadDofViewModel extends Notifier<UploadDofState> {
       }
 
       final novaSessao = await sessaoDatasource.criarSessao(
-        state.madeireiraNome.trim(),
+        madeireiraNome: state.madeireiraNome.trim(),
+        cnpj: state.madeireiraCnpj.trim(),
+        endereco: state.madeireiraEndereco.trim(),
       );
 
       final itensComSessao = state.parsedItems
