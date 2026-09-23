@@ -18,12 +18,12 @@ import 'package:fiscaliza/features/fiscalizacao/presentation/captura/captura_sta
 import 'package:fiscaliza/features/fiscalizacao/presentation/captura/fisc_edit_action.dart';
 import 'package:fiscaliza/features/fiscalizacao/presentation/captura/foto_session.dart';
 
+// autoDispose so each DOF item opens a fresh session; the state survives
+// while MedidasScreen is pushed because CapturaScreen stays mounted below it.
 final capturaViewModelProvider =
-    NotifierProvider<CapturaViewModel, CapturaState>(
+    NotifierProvider.autoDispose<CapturaViewModel, CapturaState>(
   CapturaViewModel.new,
 );
-
-final capturaNotifierProvider = capturaViewModelProvider;
 
 class CapturaViewModel extends Notifier<CapturaState> {
   late YoloService _yolo;

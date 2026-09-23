@@ -26,6 +26,8 @@ class YoloService {
   int _numClasses = 80;
 
   Future<void> init() async {
+    if (_interpreter != null && _labels.isNotEmpty) return;
+    _interpreter?.close();
     _interpreter = await Interpreter.fromAsset(
       'assets/models/yolo_madeira.tflite',
     );
