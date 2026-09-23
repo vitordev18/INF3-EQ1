@@ -1,6 +1,6 @@
 {
   "nome": "FISCALIZA",
-  "slogan": "Uma frase curta e marcante que resume a proposta de valor do projeto.",
+  "slogan": "Na palma da mão, o app que transforma sua fiscalização.",
   "ano": 2026,
   "turma": "INF3",
   "curso": "Técnico em Informática",
@@ -9,7 +9,7 @@
     "Flutter",
     "Dart"
   ],
-  "objetivo": "O Fiscaliza tem o objetivo de facilitar as fiscalizações em campo de policiais Ambientais por meio de contagens com Visão Computacional, dimensionamento manual e geração de relatórios instantâneos.",
+  "objetivo": "O Fiscaliza tem o objetivo de facilitar as fiscalizações em campo de policiais ambientais por meio de contagens com Visão Computacional, dimensionamento manual e geração de relatórios instantâneos.",
   "video_url": null,
   "repositorio_url": "https://github.com/vitordev18/INF3-EQ1.git",
   "deploy_url": "https://eq.projetoscti.com.br/26-fiscaliza",
