@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:fiscaliza/core/logging/app_logger.dart';
+import 'package:fiscaliza/core/utils/text_encoding.dart';
 import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:uuid/uuid.dart';
 
@@ -33,26 +34,41 @@ class ExcelParserService {
         throw Exception('Planilha vazia');
       }
 
-      final headerRow = table.rows[0];
-      final headers = _normalizeHeaders(
-        headerRow.map((cell) => cell?.value?.toString() ?? '').toList()
-      );
+      final headerIndex = _encontrarLinhaDoCabecalho(table.rows);
+      if (headerIndex == -1) {
+        throw Exception(
+          'Cabeçalho não encontrado: nenhuma linha da planilha contém a '
+          'coluna "Produto". Confira se a aba selecionada é a da tabela '
+          'de produtos do DOF.',
+        );
+      }
 
+      final headerRow = table.rows[headerIndex];
+      final rotulosLidos = headerRow
+          .map((cell) => repararEncoding(cell?.value?.toString().trim() ?? ''))
+          .toList();
+      final headers = _normalizeHeaders(rotulosLidos);
+
+      AppLogger.info('├─ Cabeçalho na linha ${headerIndex + 1}');
       AppLogger.info('├─ Detectando cabeçalhos...');
       for (int i = 0; i < headers.length && i < headerRow.length; i++) {
         AppLogger.info('│  ✓ "${headerRow[i]?.value}" → "${headers[i]}"');
       }
 
-      final bool hasRequiredColumns = _validateRequiredColumns(headers);
-      if (!hasRequiredColumns) {
-        throw Exception('Colunas obrigatórias não encontradas');
+      final faltantes = _colunasFaltantes(headers);
+      if (faltantes.isNotEmpty) {
+        final encontradas = rotulosLidos.where((h) => h.isNotEmpty).join(', ');
+        throw Exception(
+          'Colunas obrigatórias não encontradas: ${faltantes.join(', ')}. '
+          'Colunas lidas na planilha: $encontradas',
+        );
       }
       AppLogger.info('└─ ✅ Todas as colunas obrigatórias presentes');
 
       final items = <DofItemModel>[];
       AppLogger.info('⚙️ FASE 2: EXTRAÇÃO DE DADOS');
 
-      for (int i = 1; i < table.rows.length; i++) {
+      for (int i = headerIndex + 1; i < table.rows.length; i++) {
         try {
           final row = table.rows[i];
 
@@ -102,38 +118,97 @@ class ExcelParserService {
     return data;
   }
 
+  static String _semAcento(String texto) {
+    const de = 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
+    const para = 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC';
+    final buffer = StringBuffer();
+    for (final char in texto.split('')) {
+      final i = de.indexOf(char);
+      buffer.write(i == -1 ? char : para[i]);
+    }
+    return buffer.toString();
+  }
+
+  static String _compactar(String texto) =>
+      texto.replaceAll(RegExp('[^a-z0-9]'), '');
+
   static List<String> _normalizeHeaders(List<String> headers) {
     return headers.map((header) {
-      final normalized = header.toLowerCase().trim();
+      final bruto = header.toLowerCase().trim();
+      final normalized = _semAcento(bruto);
+      final compacto = _compactar(normalized);
+      final compactoBruto = _compactar(bruto);
 
-      if (normalized.contains('número') || normalized.contains('num') || normalized == 'id') {
-        return 'numero';
-      } else if (normalized.contains('produto') || normalized.contains('product')) {
-        return 'produto';
-      } else if (normalized.contains('especie') || normalized.contains('científico') || normalized.contains('scientific')) {
-        return 'especieCientifico';
-      } else if (normalized.contains('popular') || normalized.contains('common')) {
-        return 'nomePopular';
-      } else if (normalized.contains('saldo livre') || normalized.contains('free') || normalized.contains('disponível')) {
+      if (normalized.contains('saldo livre') ||
+          compacto.contains('saldolivre') ||
+          normalized.contains('free') ||
+          normalized.contains('disponivel')) {
         return 'saldoLivre';
-      } else if (normalized.contains('saldo total') || normalized.contains('total')) {
+      }
+      if (normalized.contains('saldo total') ||
+          compacto.contains('saldototal') ||
+          normalized.contains('total')) {
         return 'saldoTotal';
-      } else if (normalized.contains('unidade') || normalized.contains('unit')) {
+      }
+      if (normalized.contains('popular') || normalized.contains('common')) {
+        return 'nomePopular';
+      }
+      if (normalized.contains('especie') ||
+          normalized.contains('cientifico') ||
+          normalized.contains('scientific')) {
+        return 'especieCientifico';
+      }
+      if (normalized.contains('produto') || normalized.contains('product')) {
+        return 'produto';
+      }
+      if (normalized.contains('unidade') || normalized.contains('unit')) {
         return 'unidade';
+      }
+      if (compacto.contains('numero') ||
+          compacto.contains('num') ||
+          compacto == 'id' ||
+          compacto == 'ordem' ||
+          compactoBruto == 'n' ||
+          compactoBruto == 'no' ||
+          compactoBruto == 'num') {
+        return 'numero';
       }
 
       return normalized;
     }).toList();
   }
 
-  static bool _validateRequiredColumns(List<String> headers) {
-    const required = ['numero', 'produto', 'especieCientifico', 'nomePopular', 'saldoLivre', 'saldoTotal'];
-    return required.every((field) => headers.contains(field));
+  static const _rotulosObrigatorios = <String, String>{
+    'numero': 'Número',
+    'produto': 'Produto',
+    'especieCientifico': 'Espécie (Científico)',
+    'nomePopular': 'Nome Popular',
+    'saldoLivre': 'Saldo Livre',
+    'saldoTotal': 'Saldo Total',
+  };
+
+  static int _encontrarLinhaDoCabecalho(List<List<Data?>> rows) {
+    for (int i = 0; i < rows.length; i++) {
+      final conteudo = rows[i]
+          .map((cell) => cell?.value?.toString() ?? '')
+          .join(' ')
+          .toLowerCase();
+      if (conteudo.contains('produto')) return i;
+    }
+    return -1;
+  }
+
+  static List<String> _colunasFaltantes(List<String> headers) {
+    return _rotulosObrigatorios.entries
+        .where((e) => !headers.contains(e.key))
+        .map((e) => e.value)
+        .toList();
   }
 
   static String _getValue(dynamic value, {String defaultValue = ''}) {
     if (value == null) return defaultValue;
-    return value.toString().trim();
+    final texto = repararEncoding(value.toString().trim());
+    return texto.isEmpty ? defaultValue : texto;
   }
 
   static double _parseDouble(dynamic value) {

@@ -11,6 +11,7 @@ import 'package:fiscaliza/features/fiscalizacao/presentation/hub/hub_fiscalizaca
 import 'package:fiscaliza/features/fiscalizacao/presentation/medidas/medidas_screen.dart';
 import 'package:fiscaliza/features/fiscalizacao/presentation/validacao/validacao_screen.dart';
 import 'package:fiscaliza/features/historico/presentation/screens/historico_screen.dart';
+import 'package:fiscaliza/features/relatorio/presentation/relatorio_screen.dart';
 import 'package:fiscaliza/features/home/presentation/screens/home_screen.dart';
 import 'package:fiscaliza/features/splash/splash_screen.dart';
 
@@ -41,6 +42,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.concluir,
         builder: (context, state) => const ConcluirFiscalizacaoScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.relatorio,
+        builder: (context, state) => const RelatorioScreen(),
       ),
       GoRoute(
         path: AppRoutes.cadastro,

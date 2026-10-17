@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:csv/csv.dart';
 import 'package:fiscaliza/core/logging/app_logger.dart';
+import 'package:fiscaliza/core/utils/text_encoding.dart';
 import 'package:fiscaliza/features/dof/data/models/dof_item_model.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
@@ -110,36 +111,62 @@ class CsvParserService {
     return data;
   }
 
+  static String _semAcento(String texto) {
+    const de = 'áàâãäéèêëíìîïóòôõöúùûüçÁÀÂÃÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÇ';
+    const para = 'aaaaaeeeeiiiiooooouuuucAAAAAEEEEIIIIOOOOOUUUUC';
+    final buffer = StringBuffer();
+    for (final char in texto.split('')) {
+      final i = de.indexOf(char);
+      buffer.write(i == -1 ? char : para[i]);
+    }
+    return buffer.toString();
+  }
+
+  static String _compactar(String texto) =>
+      texto.replaceAll(RegExp('[^a-z0-9]'), '');
+
   static List<String> _normalizeHeaders(List<String> headers) {
     return headers.map((header) {
-      final normalized = header.toLowerCase().trim();
+      final bruto = header.toLowerCase().trim();
+      final normalized = _semAcento(bruto);
+      final compacto = _compactar(normalized);
+      final compactoBruto = _compactar(bruto);
 
-      if (normalized.contains('número') ||
-          normalized.contains('num') ||
-          normalized == 'id' ||
-          normalized == 'nº') {
-        return 'numero';
-      } else if (normalized.contains('produto') ||
-          normalized.contains('product')) {
-        return 'produto';
-      } else if (normalized.contains('especie') ||
-          normalized.contains('científico') ||
-          normalized.contains('scientific')) {
-        return 'especieCientifico';
-      } else if (normalized.contains('popular') ||
-          normalized.contains('common')) {
-        return 'nomePopular';
-      } else if (normalized.contains('saldo livre') ||
+      if (normalized.contains('saldo livre') ||
+          compacto.contains('saldolivre') ||
           normalized.contains('free') ||
-          normalized.contains('disponível')) {
+          normalized.contains('disponivel')) {
         return 'saldoLivre';
-      } else if (normalized.contains('saldo total') ||
+      }
+      if (normalized.contains('saldo total') ||
+          compacto.contains('saldototal') ||
           normalized.contains('total')) {
         return 'saldoTotal';
-      } else if (normalized.contains('unidade') ||
-          normalized.contains('unit')) {
+      }
+      if (normalized.contains('popular') || normalized.contains('common')) {
+        return 'nomePopular';
+      }
+      if (normalized.contains('especie') ||
+          normalized.contains('cientifico') ||
+          normalized.contains('scientific')) {
+        return 'especieCientifico';
+      }
+      if (normalized.contains('produto') || normalized.contains('product')) {
+        return 'produto';
+      }
+      if (normalized.contains('unidade') || normalized.contains('unit')) {
         return 'unidade';
       }
+      if (compacto.contains('numero') ||
+          compacto.contains('num') ||
+          compacto == 'id' ||
+          compacto == 'ordem' ||
+          compactoBruto == 'n' ||
+          compactoBruto == 'no' ||
+          compactoBruto == 'num') {
+        return 'numero';
+      }
+
       return normalized;
     }).toList();
   }
@@ -158,7 +185,8 @@ class CsvParserService {
 
   static String _getString(dynamic value, {String defaultValue = ''}) {
     if (value == null) return defaultValue;
-    return value.toString().trim();
+    final texto = repararEncoding(value.toString().trim());
+    return texto.isEmpty ? defaultValue : texto;
   }
 
   static double _parseDouble(dynamic value) {

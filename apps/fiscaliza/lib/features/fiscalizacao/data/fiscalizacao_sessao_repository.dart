@@ -11,12 +11,18 @@ class FiscalizacaoSessaoRepository {
 
   FiscalizacaoSessaoRepository(this._isarService);
 
-  Future<FiscalizacaoSessaoModel> criarSessao(String madeireiraNome) async {
+  Future<FiscalizacaoSessaoModel> criarSessao({
+    required String madeireiraNome,
+    String cnpj = '',
+    String endereco = '',
+  }) async {
     final isar = await _isarService.db;
     final sessao = FiscalizacaoSessaoModel(
       id: const Uuid().v4(),
       madeireiraNome: madeireiraNome,
       iniciadaEm: DateTime.now(),
+      madeireiraCnpj: cnpj,
+      madeireiraEndereco: endereco,
     );
     await isar.writeTxn(() async {
       final ativasAnteriores = await isar.fiscalizacaoSessaoModels

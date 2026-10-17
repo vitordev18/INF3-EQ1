@@ -109,4 +109,64 @@ void main() {
 
     expect(() => CsvParserService.parseFile(file: f), throwsA(isA<Exception>()));
   });
+
+  test('lê o cabeçalho real do DOF, com N° corrompido pelo encoding', () async {
+    final f = await csv(
+      'NÃ°,Produto,Especie,Nome Popular,Saldo livre,Saldo total,Unidade\n'
+      '001,Madeira serrada,Goupia glabra,Cupiúba,6.57,32.13,m³\n',
+    );
+
+    final itens = await CsvParserService.parseFile(file: f);
+
+    expect(itens.single.numero, '001');
+    expect(itens.single.especieCientifico, 'Goupia glabra');
+    expect(itens.single.saldoTotal, 32.13);
+  });
+
+  test('aceita as variações N°, Nº e N. na coluna de ordem', () async {
+    for (final rotulo in ['N°', 'Nº', 'N.', 'N']) {
+      final f = await csv(
+        '$rotulo,Produto,Especie,Nome Popular,Saldo livre,Saldo total\n'
+        '007,Madeira serrada,Goupia glabra,Cupiúba,1,2\n',
+      );
+
+      final itens = await CsvParserService.parseFile(file: f);
+      expect(itens.single.numero, '007', reason: rotulo);
+    }
+  });
+
+  test('coluna Nome Popular não é confundida com a de número', () async {
+    final f = await csv(
+      'NÃ°,Produto,Especie,Nome Popular,Saldo livre,Saldo total\n'
+      '001,Madeira serrada,Goupia glabra,Cupiúba,1,2\n',
+    );
+
+    final itens = await CsvParserService.parseFile(file: f);
+
+    expect(itens.single.numero, '001');
+    expect(itens.single.nomePopular, 'Cupiúba');
+  });
+
+  test('reconhece cabeçalho de espécie sem a palavra científico', () async {
+    final f = await csv(
+      'Número,Produto,Espécie,Nome Popular,Saldo Livre,Saldo Total\n'
+      '001,Madeira serrada,Goupia glabra,Cupiúba,1,2\n',
+    );
+
+    final itens = await CsvParserService.parseFile(file: f);
+
+    expect(itens.single.especieCientifico, 'Goupia glabra');
+  });
+
+  test('repara o encoding dos dados, não só do cabeçalho', () async {
+    final f = await csv(
+      '$cabecalho\n'
+      '001,Madeira beneficiada,CedrÃ£o,CupiÃºba,1,2,m³\n',
+    );
+
+    final itens = await CsvParserService.parseFile(file: f);
+
+    expect(itens.single.especieCientifico, 'Cedrão');
+    expect(itens.single.nomePopular, 'Cupiúba');
+  });
 }

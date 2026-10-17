@@ -58,6 +58,13 @@ class ConcluirFiscalizacaoScreen extends ConsumerWidget {
           onPressed: () => context.go(AppRoutes.hub),
           iconSize: 30,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Relatório',
+            icon: const Icon(Icons.description_outlined, color: AppColors.black),
+            onPressed: () => context.push(AppRoutes.relatorio),
+          ),
+        ],
       ),
       body: sessao == null
           ? const Center(

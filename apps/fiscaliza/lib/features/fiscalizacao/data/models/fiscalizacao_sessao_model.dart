@@ -12,6 +12,9 @@ class FiscalizacaoSessaoModel {
   late String madeireiraNome;
   late DateTime iniciadaEm;
 
+  String madeireiraCnpj = '';
+  String madeireiraEndereco = '';
+
   DateTime? concluidaEm;
 
   /// Só pode haver uma sessão ativa por vez.
@@ -28,6 +31,8 @@ class FiscalizacaoSessaoModel {
     required this.id,
     required this.madeireiraNome,
     required this.iniciadaEm,
+    this.madeireiraCnpj = '',
+    this.madeireiraEndereco = '',
     this.concluidaEm,
     this.ativa = true,
     this.itensTotalSnapshot,

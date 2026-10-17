@@ -55,6 +55,13 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
           onPressed: () => context.go(AppRoutes.home),
           iconSize: 30,
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Relatório',
+            icon: const Icon(Icons.description_outlined, color: AppColors.black),
+            onPressed: () => context.push(AppRoutes.relatorio),
+          ),
+        ],
       ),
       body: itens.isEmpty
           ? const Center(
@@ -63,29 +70,23 @@ class FiscalizacaoHubScreen extends ConsumerWidget {
                 style: TextStyle(fontSize: 14, color: Colors.grey),
               ),
             )
-          : Stack(
-              children: [
-                SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 90),
-                  child: Column(
-                    children: [
-                      for (int i = 0; i < itens.length; i++)
-                        _buildItemTile(
-                          context,
-                          ref,
-                          itens[i],
-                          showDivider: i != itens.length - 1,
-                        ),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  right: 14,
-                  bottom: 66,
-                  child: _buildProdutoExtraPill(context),
-                ),
-              ],
+          : SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 88),
+              child: Column(
+                children: [
+                  for (int i = 0; i < itens.length; i++)
+                    _buildItemTile(
+                      context,
+                      ref,
+                      itens[i],
+                      showDivider: i != itens.length - 1,
+                    ),
+                ],
+              ),
             ),
+      floatingActionButton: itens.isEmpty
+          ? null
+          : _buildProdutoExtraPill(context),
       bottomBar: ActionBottomBar(
         onPressed: () => _concluirFiscalizacao(context),
         child: const Text(

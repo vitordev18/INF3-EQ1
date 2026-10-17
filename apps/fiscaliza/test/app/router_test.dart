@@ -28,6 +28,7 @@ void main() {
     AppRoutes.uploadDof,
     AppRoutes.hub,
     AppRoutes.concluir,
+    AppRoutes.relatorio,
     AppRoutes.cadastro,
     AppRoutes.validacao,
     AppRoutes.captura,

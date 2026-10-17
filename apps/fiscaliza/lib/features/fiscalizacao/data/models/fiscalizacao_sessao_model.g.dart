@@ -58,13 +58,23 @@ const FiscalizacaoSessaoModelSchema = CollectionSchema(
       name: r'itensTotalSnapshot',
       type: IsarType.long,
     ),
-    r'madeireiraNome': PropertySchema(
+    r'madeireiraCnpj': PropertySchema(
       id: 8,
+      name: r'madeireiraCnpj',
+      type: IsarType.string,
+    ),
+    r'madeireiraEndereco': PropertySchema(
+      id: 9,
+      name: r'madeireiraEndereco',
+      type: IsarType.string,
+    ),
+    r'madeireiraNome': PropertySchema(
+      id: 10,
       name: r'madeireiraNome',
       type: IsarType.string,
     ),
     r'volumeTotalSnapshot': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'volumeTotalSnapshot',
       type: IsarType.double,
     )
@@ -90,6 +100,8 @@ int _fiscalizacaoSessaoModelEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.id.length * 3;
+  bytesCount += 3 + object.madeireiraCnpj.length * 3;
+  bytesCount += 3 + object.madeireiraEndereco.length * 3;
   bytesCount += 3 + object.madeireiraNome.length * 3;
   return bytesCount;
 }
@@ -108,8 +120,10 @@ void _fiscalizacaoSessaoModelSerialize(
   writer.writeLong(offsets[5], object.itensExcedentesSnapshot);
   writer.writeLong(offsets[6], object.itensPendentesSnapshot);
   writer.writeLong(offsets[7], object.itensTotalSnapshot);
-  writer.writeString(offsets[8], object.madeireiraNome);
-  writer.writeDouble(offsets[9], object.volumeTotalSnapshot);
+  writer.writeString(offsets[8], object.madeireiraCnpj);
+  writer.writeString(offsets[9], object.madeireiraEndereco);
+  writer.writeString(offsets[10], object.madeireiraNome);
+  writer.writeDouble(offsets[11], object.volumeTotalSnapshot);
 }
 
 FiscalizacaoSessaoModel _fiscalizacaoSessaoModelDeserialize(
@@ -127,8 +141,10 @@ FiscalizacaoSessaoModel _fiscalizacaoSessaoModelDeserialize(
     itensExcedentesSnapshot: reader.readLongOrNull(offsets[5]),
     itensPendentesSnapshot: reader.readLongOrNull(offsets[6]),
     itensTotalSnapshot: reader.readLongOrNull(offsets[7]),
-    madeireiraNome: reader.readString(offsets[8]),
-    volumeTotalSnapshot: reader.readDoubleOrNull(offsets[9]),
+    madeireiraCnpj: reader.readStringOrNull(offsets[8]) ?? '',
+    madeireiraEndereco: reader.readStringOrNull(offsets[9]) ?? '',
+    madeireiraNome: reader.readString(offsets[10]),
+    volumeTotalSnapshot: reader.readDoubleOrNull(offsets[11]),
   );
   object.isarId = id;
   return object;
@@ -158,8 +174,12 @@ P _fiscalizacaoSessaoModelDeserializeProp<P>(
     case 7:
       return (reader.readLongOrNull(offset)) as P;
     case 8:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset) ?? '') as P;
     case 9:
+      return (reader.readStringOrNull(offset) ?? '') as P;
+    case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
       return (reader.readDoubleOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -894,6 +914,282 @@ extension FiscalizacaoSessaoModelQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'madeireiraCnpj',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'madeireiraCnpj',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'madeireiraCnpj',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'madeireiraCnpj',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'madeireiraCnpj',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'madeireiraCnpj',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+          QAfterFilterCondition>
+      madeireiraCnpjContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'madeireiraCnpj',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+          QAfterFilterCondition>
+      madeireiraCnpjMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'madeireiraCnpj',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'madeireiraCnpj',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraCnpjIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'madeireiraCnpj',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'madeireiraEndereco',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'madeireiraEndereco',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'madeireiraEndereco',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'madeireiraEndereco',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'madeireiraEndereco',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'madeireiraEndereco',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+          QAfterFilterCondition>
+      madeireiraEnderecoContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'madeireiraEndereco',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+          QAfterFilterCondition>
+      madeireiraEnderecoMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'madeireiraEndereco',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'madeireiraEndereco',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
+      QAfterFilterCondition> madeireiraEnderecoIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'madeireiraEndereco',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel,
       QAfterFilterCondition> madeireiraNomeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -1237,6 +1533,34 @@ extension FiscalizacaoSessaoModelQuerySortBy
   }
 
   QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      sortByMadeireiraCnpj() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraCnpj', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      sortByMadeireiraCnpjDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraCnpj', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      sortByMadeireiraEndereco() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraEndereco', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      sortByMadeireiraEnderecoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraEndereco', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
       sortByMadeireiraNome() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'madeireiraNome', Sort.asc);
@@ -1394,6 +1718,34 @@ extension FiscalizacaoSessaoModelQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      thenByMadeireiraCnpj() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraCnpj', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      thenByMadeireiraCnpjDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraCnpj', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      thenByMadeireiraEndereco() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraEndereco', Sort.asc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
+      thenByMadeireiraEnderecoDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'madeireiraEndereco', Sort.desc);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QAfterSortBy>
       thenByMadeireiraNome() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'madeireiraNome', Sort.asc);
@@ -1481,6 +1833,22 @@ extension FiscalizacaoSessaoModelQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QDistinct>
+      distinctByMadeireiraCnpj({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'madeireiraCnpj',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QDistinct>
+      distinctByMadeireiraEndereco({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'madeireiraEndereco',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, FiscalizacaoSessaoModel, QDistinct>
       distinctByMadeireiraNome({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'madeireiraNome',
@@ -1557,6 +1925,20 @@ extension FiscalizacaoSessaoModelQueryProperty on QueryBuilder<
       itensTotalSnapshotProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'itensTotalSnapshot');
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, String, QQueryOperations>
+      madeireiraCnpjProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'madeireiraCnpj');
+    });
+  }
+
+  QueryBuilder<FiscalizacaoSessaoModel, String, QQueryOperations>
+      madeireiraEnderecoProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'madeireiraEndereco');
     });
   }
 

@@ -129,12 +129,16 @@ class FiscalizaMetaChip extends StatelessWidget {
       children: [
         AppSvgIcon(icon, size: iconSize, color: iconColor ?? color),
         SizedBox(width: gap),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: fontSize,
-            fontWeight: fontWeight,
-            color: color,
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: fontWeight,
+              color: color,
+            ),
           ),
         ),
       ],
